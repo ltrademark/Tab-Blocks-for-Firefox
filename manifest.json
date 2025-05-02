@@ -1,0 +1,20 @@
+{
+  "manifest_version": 3,
+  "name": "Tab Blocks",
+  "version": "1.0",
+  "description": "Replaces the new tab page with a custom link organizer.",
+  "permissions": [
+    "tabs",
+    "storage",
+    "downloads"
+  ],
+  "chrome_url_overrides": {
+    "newtab": "newtab.html"
+  },
+  "icons": {
+    "48": "icons/icon-48.png"
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self' 'unsafe-eval';"
+  }
+}
