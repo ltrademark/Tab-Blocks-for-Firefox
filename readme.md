@@ -35,7 +35,7 @@
 
 **(Instructions for installing from AMO once published)**
 
-* Visit the Tab Blocks page on the Firefox Add-ons store
+* Visit the Tab Blocks page on the [Firefox Add-ons store](https://addons.mozilla.org/en-US/firefox/addon/tab-blocks/)
 * Click "Add to Firefox".
 
 **(Instructions for manual/temporary installation)**
