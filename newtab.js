@@ -36,12 +36,27 @@ document.addEventListener('DOMContentLoaded', () => {
   // --- Utility Functions ---
   const isExtensionContext = () => typeof browser !== 'undefined' && browser.runtime?.id;
 
-  /** Safely sets the content of an element, preferring textContent */
   function setElementContent(element, content, isHtml = false) {
     if (!element) return;
-    if (isHtml) {
-      element.innerHTML = '';
-      element.insertAdjacentHTML('afterbegin', content);
+    
+    element.innerHTML = '';
+
+    if (isHtml && typeof content === 'string') {
+      try {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(content, 'text/html');
+        const parsedNode = doc.body.firstChild;
+
+        if (parsedNode) {
+          element.appendChild(parsedNode);
+        } else {
+          console.warn('setElementContent: Failed to parse HTML string:', content);
+          element.textContent = '[HTML parse error]';
+        }
+      } catch (e) {
+        console.error('setElementContent: Error parsing HTML string:', e, content);
+        element.textContent = '[HTML parse error]';
+      }
     } else {
       element.textContent = content;
     }
