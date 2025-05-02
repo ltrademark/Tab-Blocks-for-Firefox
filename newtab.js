@@ -29,6 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const collapseIconSVG = `<svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>`;
   const collapseAllIconSVG = `<svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 11 12 6 7 11"></polyline><polyline points="17 18 12 13 7 18"></polyline></svg>`;
   const expandAllIconSVG = `<svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="7 13 12 18 17 13"></polyline><polyline points="7 6 12 11 17 6"></polyline></svg>`;
+  const deleteIconSVG = `<svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: auto;"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`;
   const dragHandleIconSVG = `<div class="f-icon f-fill"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M13 4C13 4.55228 12.5523 5 12 5C11.4477 5 11 4.55228 11 4C11 3.44772 11.4477 3 12 3C12.5523 3 13 3.44772 13 4Z" fill="currentColor"/><path d="M13 9C13 9.55228 12.5523 10 12 10C11.4477 10 11 9.55228 11 9C11 8.44772 11.4477 8 12 8C12.5523 8 13 8.44772 13 9Z" fill="currentColor"/><path d="M13 14C13 14.5523 12.5523 15 12 15C11.4477 15 11 14.5523 11 14C11 13.4477 11.4477 13 12 13C12.5523 13 13 13.4477 13 14Z" fill="currentColor"/><path d="M13 19C13 19.5523 12.5523 20 12 20C11.4477 20 11 19.5523 11 19C11 18.4477 11.4477 18 12 18C12.5523 18 13 18.4477 13 19Z" fill="currentColor"/><path d="M8 4C8 4.55228 7.55228 5 7 5C6.44772 5 6 4.55228 6 4C6 3.44772 6.44772 3 7 3C7.55228 3 8 3.44772 8 4Z" fill="currentColor"/><path d="M8 9C8 9.55228 7.55228 10 7 10C6.44772 10 6 9.55228 6 9C6 8.44772 6.44772 8 7 8C7.55228 8 8 8.44772 8 9Z" fill="currentColor"/><path d="M8 14C8 14.5523 7.55228 15 7 15C6.44772 15 6 14.5523 6 14C6 13.4477 6.44772 13 7 13C7.55228 13 8 13.4477 8 14Z" fill="currentColor"/><path d="M8 19C8 19.5523 7.55228 20 7 20C6.44772 20 6 19.5523 6 19C6 18.4477 6.44772 18 7 18C7.55228 18 8 18.4477 8 19Z" fill="currentColor"/><path d="M18 4C18 4.55228 17.5523 5 17 5C16.4477 5 16 4.55228 16 4C16 3.44772 16.4477 3 17 3C17.5523 3 18 3.44772 18 4Z" fill="currentColor"/><path d="M18 9C18 9.55228 17.5523 10 17 10C16.4477 10 16 9.55228 16 9C16 8.44772 16.4477 8 17 8C17.5523 8 18 8.44772 18 9Z" fill="currentColor"/><path d="M18 14C18 14.5523 17.5523 15 17 15C16.4477 15 16 14.5523 16 14C16 13.4477 16.4477 13 17 13C17.5523 13 18 13.4477 18 14Z" fill="currentColor"/><path d="M18 19C18 19.5523 17.5523 20 17 20C16.4477 20 16 19.5523 16 19C16 18.4477 16.4477 18 17 18C17.5523 18 18 18.4477 18 19Z" fill="currentColor"/></svg></div>`;
   const editIconSVG = `<i class="fas fa-pencil-alt"></i>`;
 
@@ -136,9 +137,10 @@ document.addEventListener('DOMContentLoaded', () => {
     collapseBtn.dataset.action = 'toggle-collapse';
     collapseBtn.innerHTML = `<div class="f-icon">${collapseIconSVG}</div>`;
     const deleteCollectionBtn = document.createElement('button');
-    deleteCollectionBtn.classList.add('delete-collection-btn', 'btn', 'btn-danger', 'btn-sm');
+    deleteCollectionBtn.classList.add('delete-collection-btn', 'btn', 'btn-danger', 'btn-sm', 'btn-sq');
     deleteCollectionBtn.title = 'Delete Collection';
-    deleteCollectionBtn.textContent = 'Delete';
+    // deleteCollectionBtn.textContent = 'Delete';
+    deleteCollectionBtn.innerHTML = `<div class="f-icon">${deleteIconSVG}</div>`;
     deleteCollectionBtn.dataset.action = 'delete-collection';
     actionsDiv.appendChild(deleteCollectionBtn); // Order buttons
     actionsDiv.appendChild(collapseBtn);
