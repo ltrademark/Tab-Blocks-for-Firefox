@@ -1,10 +1,12 @@
-# ![icon](./icons/icon-48.png) Tab Blocks for Firefox
-
+<center>
+<img alt="Fallback image description" src="./screenshots/app icons/app_icon-128.png">
+<h1>Tab Blocks for Firefox</h1>
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="./screenshots/screen-dark.png">
   <source media="(prefers-color-scheme: light)" srcset="./screenshots/screen-light.png">
   <img alt="Fallback image description" src="./screenshots/screen-dark.png">
 </picture>
+</center>
 
 * **Custom New Tab Page:** Provides a dedicated space for your organized links every time you open a new tab.
 * **Link Collections:**
