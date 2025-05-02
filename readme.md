@@ -1,4 +1,4 @@
-# Tab Blocks for Firefox
+# ![icon](./icons/icon-48.png) Tab Blocks for Firefox
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="./screenshots/screen-dark.png">
