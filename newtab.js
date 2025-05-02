@@ -1,6 +1,4 @@
 document.addEventListener('DOMContentLoaded', () => {
-  console.log('DOM loaded. Initializing plain JS app...');
-
   // --- State ---
   let collections = []; // Holds the array of {id, name, isCollapsed, links: [{id, title, url, favIconUrl?}]}
   let openTabs = []; // Holds array of {id, title, url, favIconUrl}
@@ -173,7 +171,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   /** Renders collections, applying search filter */
   function renderCollections() {
-    console.log(`Rendering collections (filter: "${searchTerm}")...`);
+    // for debugging: console.log(`Rendering collections (filter: "${searchTerm}")...`);
     const scrollTop = collectionsContainer.scrollTop;
     collectionsContainer.innerHTML = ''; // Clear previous
 
@@ -201,12 +199,12 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     collectionsContainer.scrollTop = scrollTop;
-    console.log('Filtered collections rendered.');
+    // for debugging: console.log('Filtered collections rendered.');
   }
 
   /** Renders the list of open tabs */
   function renderTabsList() {
-    console.log('Rendering tabs list...');
+    // for debugging: console.log('Rendering tabs list...');
     tabsListContainer.innerHTML = ''; // Clear previous
 
     if (openTabs.length === 0) {
@@ -239,7 +237,7 @@ document.addEventListener('DOMContentLoaded', () => {
       tabDiv.addEventListener('dragstart', handleDragStart);
       tabsListContainer.appendChild(tabDiv);
     });
-    console.log('Tabs list rendered.');
+    // for debugging: console.log('Tabs list rendered.');
   }
 
   // --- Event Handlers ---
@@ -255,7 +253,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     event.dataTransfer.setData('application/json', JSON.stringify(draggedTab));
     event.dataTransfer.effectAllowed = 'copy';
-    console.log('Dragging tab:', draggedTab.title);
+    // for debugging: console.log('Dragging tab:', draggedTab.title);
   }
 
   // -- Link Block Drag/Drop Handlers --
@@ -281,7 +279,7 @@ document.addEventListener('DOMContentLoaded', () => {
     event.dataTransfer.setData('application/link-block+json', JSON.stringify(draggedLinkInfo));
     event.dataTransfer.effectAllowed = 'move';
     setTimeout(() => linkBlock.classList.add('dragging'), 0);
-    console.log(`Dragging link block: ${linkData.title} from ${sourceCollectionId}`);
+    // for debugging: console.log(`Dragging link block: ${linkData.title} from ${sourceCollectionId}`);
   }
 
   function handleLinkBlockDragEnd(event) {
@@ -292,7 +290,7 @@ document.addEventListener('DOMContentLoaded', () => {
       collectionsContainer.querySelector(`.collection[data-collection-id="${dragOverCollectionId}"]`)?.classList.remove('drag-over');
       dragOverCollectionId = null;
     }
-    console.log('Link block drag end');
+    // for debugging: console.log('Link block drag end');
   }
 
   function handleLinkDragOver(event) {
@@ -359,7 +357,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (linkBlockData && draggedLinkInfo) {
       // --- Dropped an existing Link Block ---
-      console.log(`Moving link block to collection ${targetCollectionId}`);
+      // for debugging: console.log(`Moving link block to collection ${targetCollectionId}`);
       const { linkId, sourceCollectionId, linkData } = draggedLinkInfo;
       if (sourceCollectionId === targetCollectionId) {
         cleanupAfterDrop();
@@ -380,12 +378,12 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       const [movedLink] = sourceCollection.links.splice(linkIndexInSource, 1);
       targetCollection.links.push(movedLink);
-      console.log(`Moved link "${movedLink.title}" from ${sourceCollectionId} to ${targetCollectionId}`);
+      // for debugging: console.log(`Moved link "${movedLink.title}" from ${sourceCollectionId} to ${targetCollectionId}`);
       renderCollections();
       saveData();
     } else if (newTabData && draggedTab) {
       // --- Dropped a New Tab ---
-      console.log(`Dropping NEW TAB onto collection ID: ${targetCollectionId}`);
+      // for debugging: console.log(`Dropping NEW TAB onto collection ID: ${targetCollectionId}`);
       if (targetCollection.links.some((link) => link.url === draggedTab.url)) {
         collectionDiv.classList.add('duplicate-attempt');
         setTimeout(() => collectionDiv.classList.remove('duplicate-attempt'), 600);
@@ -423,7 +421,7 @@ document.addEventListener('DOMContentLoaded', () => {
     event.dataTransfer.setData('text/plain', draggedCollectionId);
     event.dataTransfer.effectAllowed = 'move';
     setTimeout(() => collectionDiv.classList.add('dragging'), 0);
-    console.log('Dragging collection:', draggedCollectionId);
+    // for debugging: console.log('Dragging collection:', draggedCollectionId);
   }
 
   function handleCollectionDragEnd(event) {
@@ -432,7 +430,7 @@ document.addEventListener('DOMContentLoaded', () => {
     clearReorderIndicators();
     draggedCollectionId = null;
     reorderTargetInfo = null;
-    console.log('Collection drag end');
+    // for debugging: console.log('Collection drag end');
   }
 
   function handleCollectionDragOver(event) {
@@ -475,7 +473,7 @@ document.addEventListener('DOMContentLoaded', () => {
     event.preventDefault();
     clearReorderIndicators();
     if (!draggedCollectionId || !reorderTargetInfo) {
-      console.log('Collection drop ignored: missing info.');
+      // for debugging: console.log('Collection drop ignored: missing info.');
       draggedCollectionId = null;
       reorderTargetInfo = null;
       return;
@@ -485,7 +483,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const dropPosition = reorderTargetInfo.position;
     draggedCollectionId = null;
     reorderTargetInfo = null;
-    console.log(`Dropping collection ${draggedId} ${dropPosition} of ${targetId}`);
+    // for debugging: console.log(`Dropping collection ${draggedId} ${dropPosition} of ${targetId}`);
     const draggedIndex = collections.findIndex((c) => c.id == draggedId);
     const targetIndex = collections.findIndex((c) => c.id == targetId);
     if (draggedIndex === -1 || targetIndex === -1 || draggedIndex === targetIndex) {
@@ -498,7 +496,7 @@ document.addEventListener('DOMContentLoaded', () => {
     collections.splice(insertAtIndex, 0, draggedItem);
     renderCollections();
     saveData();
-    console.log('Collection reorder complete.');
+    // for debugging: console.log('Collection reorder complete.');
   }
 
   function clearReorderIndicators() {
@@ -603,7 +601,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const wasEditing = editingLinkId;
     resetEditState();
     if (stateChanged && wasEditing) {
-      console.log('Link title updated, saving...');
+      // for debugging: console.log('Link title updated, saving...');
       saveData();
     }
   }
@@ -632,7 +630,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // --- Action Functions ---
   function addCollection() {
-    console.log('Adding new collection (prepending)');
+    // for debugging: console.log('Adding new collection (prepending)');
     const newCollection = { id: Date.now() + Math.random(), name: `New Collection`, isCollapsed: false, links: [] };
     collections.unshift(newCollection);
     renderCollections();
@@ -656,7 +654,7 @@ document.addEventListener('DOMContentLoaded', () => {
     collections[cIndex].links.splice(lIndex, 1);
     renderCollections();
     saveData();
-    console.log(`Deleted link ${linkId}`);
+    // for debugging: console.log(`Deleted link ${linkId}`);
   }
 
   function deleteCollectionById(collectionId) {
@@ -666,7 +664,7 @@ document.addEventListener('DOMContentLoaded', () => {
       collections.splice(index, 1);
       renderCollections();
       saveData();
-      console.log(`Deleted collection ${collectionId}`);
+      // for debugging: console.log(`Deleted collection ${collectionId}`);
     }
   }
 
@@ -676,7 +674,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (collection && collection.name !== trimmedName) {
       collection.name = trimmedName || 'Untitled Collection';
       saveData();
-      console.log(`Updated title for collection ${collectionId}`);
+      // for debugging: console.log(`Updated title for collection ${collectionId}`);
       const input = collectionsContainer.querySelector(`.collection[data-collection-id="${collectionId}"] .collection-title-input`);
       if (input) input.value = collection.name;
     }
@@ -706,7 +704,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const collection = collections.find((c) => c.id == collectionId);
     if (!collection) return;
     collection.isCollapsed = !collection.isCollapsed;
-    console.log(`Collection ${collectionId} collapsed state: ${collection.isCollapsed}`);
+    // for debugging: console.log(`Collection ${collectionId} collapsed state: ${collection.isCollapsed}`);
     const collectionDiv = collectionsContainer.querySelector(`.collection[data-collection-id="${collectionId}"]`);
     const collapseBtn = collectionDiv?.querySelector('.collapse-btn');
     if (collectionDiv) {
@@ -719,7 +717,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function toggleCollapseAll() {
     allCollapsed = !allCollapsed;
-    console.log(`Toggling all collections to collapsed: ${allCollapsed}`);
+    // for debugging: console.log(`Toggling all collections to collapsed: ${allCollapsed}`);
     collections.forEach((collection) => {
       collection.isCollapsed = allCollapsed;
       const collectionDiv = collectionsContainer.querySelector(`.collection[data-collection-id="${collection.id}"]`);
@@ -743,7 +741,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // --- Browser API Functions ---
   async function loadData() {
-    console.log('Loading data from storage...');
+    // for debugging: console.log('Loading data from storage...');
     if (!isExtensionContext() || !browser.storage) {
       console.warn('Storage API not available.');
       collections = [];
@@ -753,7 +751,7 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       const result = await browser.storage.local.get('collections');
       collections = (result.collections || []).map((c) => ({ ...c, id: c.id || Date.now() + Math.random(), isCollapsed: c.isCollapsed || false, links: Array.isArray(c.links) ? c.links.map((l) => ({ ...l, id: l.id || Date.now() + Math.random(), favIconUrl: l.favIconUrl || null })) : [] }));
-      console.log('Data loaded:', collections.length, 'collections');
+      // for debugging: console.log('Data loaded:', collections.length, 'collections');
     } catch (error) {
       console.error('Error loading data:', error);
       collections = [];
@@ -771,14 +769,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const validatedCollections = collections.map((c) => ({ id: c.id || Date.now() + Math.random(), name: typeof c.name === 'string' ? c.name.trim() || 'Untitled Collection' : 'Untitled Collection', isCollapsed: c.isCollapsed || false, links: Array.isArray(c.links) ? c.links.map((l) => ({ id: l.id || Date.now() + Math.random(), url: typeof l.url === 'string' ? l.url : '#', title: typeof l.title === 'string' && l.title.trim() ? l.title.trim() : l.url || 'Untitled Link', favIconUrl: l.favIconUrl || null })) : [] }));
     try {
       await browser.storage.local.set({ collections: validatedCollections });
-      console.log('Data saved to storage.');
+      // for debugging: console.log('Data saved to storage.');
     } catch (error) {
       console.error('Error saving data:', error);
     }
   }
 
   async function fetchOpenTabs() {
-    console.log('Fetching open tabs...');
+    // for debugging: console.log('Fetching open tabs...');
     tabsListContainer.innerHTML = '<div class="loading-indicator">Loading tabs...</div>';
     if (!isExtensionContext() || !browser.tabs) {
       console.warn('Tabs API not available.');
@@ -789,7 +787,7 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       const tabs = await browser.tabs.query({ currentWindow: true });
       openTabs = tabs.filter((tab) => tab.url && !tab.url.startsWith('about:') && !tab.url.startsWith('moz-extension:'));
-      console.log('Tabs fetched:', openTabs.length);
+      // for debugging: console.log('Tabs fetched:', openTabs.length);
     } catch (error) {
       console.error('Error fetching tabs:', error);
       openTabs = [];
@@ -819,7 +817,7 @@ document.addEventListener('DOMContentLoaded', () => {
       try {
         const rawData = JSON.parse(e.target.result);
         if (rawData && rawData.version === 3 && Array.isArray(rawData.lists)) {
-          console.log('Detected Toby format.');
+          // for debugging: console.log('Detected Toby format.');
           isTobyFormat = true;
           importedCollections = rawData.lists.map((list) => {
             if (typeof list !== 'object' || list === null || typeof list.title !== 'string' || !Array.isArray(list.cards)) throw new Error(`Invalid Toby list: ${list.title || 'Untitled'}`);
@@ -831,7 +829,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return { id: Date.now() + Math.random(), name: list.title.trim() || 'Untitled Toby Collection', isCollapsed: false, links: convertedLinks };
           });
         } else if (Array.isArray(rawData)) {
-          console.log('Assuming native format.');
+          // for debugging: console.log('Assuming native format.');
           importedCollections = rawData.map((c, index) => {
             if (typeof c !== 'object' || c === null || typeof c.name !== 'string' || !Array.isArray(c.links)) throw new Error(`Invalid native collection ${index}.`);
             const validatedLinks = c.links.map((l, linkIndex) => {
@@ -853,7 +851,7 @@ document.addEventListener('DOMContentLoaded', () => {
             collections = importedCollections;
             alert('Import successful! Collections replaced.');
           } else {
-            console.log('Import (replace) cancelled.');
+            // for debugging: console.log('Import (replace) cancelled.');
             return;
           }
         } else {
@@ -922,15 +920,14 @@ document.addEventListener('DOMContentLoaded', () => {
   collapseAllBtn.addEventListener('click', toggleCollapseAll); // Listener for collapse all
   searchInput.addEventListener('input', handleSearchInput); // Listener for search
 
-  loadData(); // Initial load
-  fetchOpenTabs(); // Initial fetch
+  loadData();
+  fetchOpenTabs(); 
   if (isExtensionContext()) {
     browser.storage.onChanged.addListener((changes, area) => {
       if (area === 'local' && changes.collections) {
-        console.log('Storage changed externally, reloading...');
+        // for debugging: console.log('Storage changed externally, reloading...');
         loadData();
       }
     });
   }
-  console.log('Plain JS app initialization complete.');
 });

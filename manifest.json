@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Tab Blocks",
   "version": "1.0",
-  "description": "Replaces the new tab page with a custom link organizer.",
+  "description": "A new tab replacement & open-tabs manager for Firefox.",
   "permissions": [
     "tabs",
     "storage",
