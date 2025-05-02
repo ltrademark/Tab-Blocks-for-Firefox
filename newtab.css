@@ -139,6 +139,59 @@ a {
   appearance: none;
 }
 
+.search-toggle {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  translate: 0 -50%;
+  display: inline-flex;
+  align-items: center;
+  background-color: var(--background);
+  border-radius: var(--radius-small);
+  padding: 3px;
+  margin-right: var(--padding-small);
+  border: 1px solid var(--border);
+  flex-shrink: 0; 
+}
+
+.search-toggle input[type="radio"] {
+  display: none; 
+}
+
+.search-toggle label {
+  padding: calc(var(--padding-small) / 2) var(--padding-small);
+  font-size: 0.8em;
+  color: var(--foreground-muted);
+  cursor: pointer;
+  position: relative;
+  z-index: 1; 
+  transition: color var(--near) var(--curve);
+  white-space: nowrap;
+}
+
+.search-toggle input[type="radio"]:checked + label {
+  color: var(--accent);
+}
+
+.search-toggle-slider {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  width: calc(50% - 3px);
+  background-color: var(--accent-offset);
+  border-radius: calc(var(--radius-small) - 3px);
+  transition: transform var(--near) var(--curve);
+  z-index: 0;
+}
+
+#search-target-collections:checked ~ .search-toggle-slider {
+  transform: translateX(0);
+}
+
+#search-target-tabs:checked ~ .search-toggle-slider {
+  transform: translateX(calc(100%));
+}
+
 .sidebar {
   display: flex;
   flex-direction: column;
@@ -359,14 +412,6 @@ a {
 
 .collapse-btn .f-icon svg {
   transition: transform var(--near) var(--curve);
-}
-
-#collapse-all-btn .f-icon svg {
-  transition: transform var(--near) var(--curve);
-}
-
-#collapse-all-btn.all-collapsed .f-icon svg {
-  transform: rotate(180deg);
 }
 
 .add-collection-btn {

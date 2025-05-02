@@ -11,9 +11,9 @@ document.addEventListener('DOMContentLoaded', () => {
   let editingLinkOriginalTitle = '';
   let allCollapsed = false; // State for the "Collapse All" button
   let searchTerm = ''; // State for search term
+  let searchTarget = 'collections'; // 'collections' or 'tabs', default to collections
 
   // --- DOM References ---
-  // Ensure these IDs match your latest HTML structure
   const collectionsContainer = document.getElementById('collections-container');
   const tabsListContainer = document.getElementById('tabs-list');
   const addCollectionBtn = document.getElementById('add-collection-btn');
@@ -23,8 +23,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const importFileInput = document.getElementById('import-file');
   const collapseAllBtn = document.getElementById('collapse-all-btn');
   const searchInput = document.getElementById('search-input');
+  const searchToggleContainer = document.getElementById('search-toggle-container');
 
-  // --- SVG Icons --- (Store SVGs for reuse)
+  // --- SVGs / Icons ---
   const collapseIconSVG = `<svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>`;
   const collapseAllIconSVG = `<svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 11 12 6 7 11"></polyline><polyline points="17 18 12 13 7 18"></polyline></svg>`;
   const expandAllIconSVG = `<svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="7 13 12 18 17 13"></polyline><polyline points="7 6 12 11 17 6"></polyline></svg>`;
@@ -43,7 +44,7 @@ document.addEventListener('DOMContentLoaded', () => {
     linkBlock.dataset.collectionId = collectionId;
     linkBlock.dataset.linkId = link.id;
     linkBlock.title = `Go to: ${link.url}`;
-    linkBlock.draggable = true;
+    linkBlock.draggable = true; // Make the link block draggable
 
     // Add drag listeners for moving link blocks
     linkBlock.addEventListener('dragstart', handleLinkBlockDragStart);
@@ -105,7 +106,7 @@ document.addEventListener('DOMContentLoaded', () => {
     return linkBlock;
   }
 
-  /** Renders a single collection element */
+  /** Renders a single collection element, making its handle draggable */
   function createCollectionElement(collection, filteredLinks) {
     const collectionDiv = document.createElement('div');
     collectionDiv.className = 'collection';
@@ -177,55 +178,59 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const lowerSearchTerm = searchTerm.toLowerCase();
 
-    // Filter collections: Keep a collection if the term is empty OR
-    // the collection name matches OR any of its links match.
+    // Filter collections based on name or link content
     const filteredCollections = collections.filter((collection) => {
-      if (!lowerSearchTerm) return true; // Show all if no search term
+      if (!lowerSearchTerm) return true;
       const nameMatch = collection.name.toLowerCase().includes(lowerSearchTerm);
       const linkMatch = collection.links.some((link) => (link.title || '').toLowerCase().includes(lowerSearchTerm) || (link.url || '').toLowerCase().includes(lowerSearchTerm));
       return nameMatch || linkMatch;
     });
 
     if (filteredCollections.length === 0) {
-      collectionsContainer.innerHTML = `<div class="empty-main-message">${searchTerm ? 'No collections or links match your search.' : 'No collections yet. Create one or import a configuration.'}</div>`;
+      collectionsContainer.innerHTML = `<div class="empty-main-message">${searchTerm ? 'No collections or links match your search.' : 'No collections yet.'}</div>`;
       return;
     }
 
     filteredCollections.forEach((collection) => {
-      // Filter links within the collection for rendering
+      // Filter links within the matching collection
       const filteredLinks = !lowerSearchTerm ? collection.links : collection.links.filter((link) => (link.title || '').toLowerCase().includes(lowerSearchTerm) || (link.url || '').toLowerCase().includes(lowerSearchTerm));
-      // Pass the filtered links to the element creation function
-      collectionsContainer.appendChild(createCollectionElement(collection, filteredLinks));
+      // Only render the collection if the search term is empty OR if there are matching links after filtering
+      if (!lowerSearchTerm || filteredLinks.length > 0) {
+        collectionsContainer.appendChild(createCollectionElement(collection, filteredLinks));
+      }
     });
 
     collectionsContainer.scrollTop = scrollTop;
     // for debugging: console.log('Filtered collections rendered.');
   }
 
-  /** Renders the list of open tabs */
+  /** Renders the list of open tabs, applying search filter */
   function renderTabsList() {
-    // for debugging: console.log('Rendering tabs list...');
+    // for debugging: console.log(`Rendering tabs list (filter: "${searchTerm}")...`);
     tabsListContainer.innerHTML = ''; // Clear previous
 
-    if (openTabs.length === 0) {
-      tabsListContainer.innerHTML = '<div class="empty-collection-message">No other open tabs found.</div>';
+    const lowerSearchTerm = searchTerm.toLowerCase();
+
+    // Filter open tabs
+    const filteredTabs = !lowerSearchTerm ? openTabs : openTabs.filter((tab) => (tab.title || '').toLowerCase().includes(lowerSearchTerm) || (tab.url || '').toLowerCase().includes(lowerSearchTerm));
+
+    if (filteredTabs.length === 0) {
+      tabsListContainer.innerHTML = `<div class="empty-collection-message">${searchTerm ? 'No open tabs match your search.' : 'No other open tabs found.'}</div>`;
       return;
     }
 
-    openTabs.forEach((tab) => {
+    filteredTabs.forEach((tab) => {
       const tabDiv = document.createElement('div');
       tabDiv.className = 'tab-item';
       tabDiv.draggable = true;
       tabDiv.dataset.tabId = tab.id;
       tabDiv.dataset.tabUrl = tab.url;
       tabDiv.dataset.tabTitle = tab.title;
-      if (tab.favIconUrl) {
-        tabDiv.dataset.tabFavicon = tab.favIconUrl;
-      }
+      if (tab.favIconUrl) tabDiv.dataset.tabFavicon = tab.favIconUrl;
 
       const favicon = document.createElement('img');
       favicon.className = 'favicon';
-      favicon.src = tab.favIconUrl || 'placeholder-favicon.png';
+      favicon.src = tab.favIconUrl || './icons/placeholder-favicon.png';
       favicon.alt = '';
       favicon.onerror = () => {
         favicon.style.display = 'none';
@@ -233,11 +238,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
       tabDiv.appendChild(favicon);
       tabDiv.appendChild(document.createTextNode(` ${tab.title || tab.url}`));
-
       tabDiv.addEventListener('dragstart', handleDragStart);
       tabsListContainer.appendChild(tabDiv);
     });
-    // for debugging: console.log('Tabs list rendered.');
+    // for debugging: console.log('Filtered tabs list rendered.');
   }
 
   // --- Event Handlers ---
@@ -293,6 +297,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // for debugging: console.log('Link block drag end');
   }
 
+  // -- Shared Drag Over/Leave/Drop Handlers for Collections --
   function handleLinkDragOver(event) {
     // Handles BOTH tab links and link blocks over a collection
     event.preventDefault();
@@ -551,7 +556,28 @@ document.addEventListener('DOMContentLoaded', () => {
   // --- Search Handler ---
   function handleSearchInput() {
     searchTerm = searchInput.value.trim();
-    renderCollections(); // Re-render collections with the new filter
+    if (searchTarget === 'collections') {
+      renderCollections();
+    } else {
+      renderTabsList();
+    }
+  }
+
+  // --- Search Target Toggle Handler ---
+  function handleSearchTargetChange(event) {
+    if (event.target.name === 'search-target') {
+      searchTarget = event.target.value;
+      // for debugging: console.log('Search target changed to:', searchTarget);
+      searchInput.placeholder = searchTarget === 'collections' ? 'Search Collections...' : 'Search Open Tabs...';
+      searchInput.ariaLabel = searchTarget === 'collections' ? 'Search Collections' : 'Search Open Tabs';
+      searchInput.value = ''; // Clear input on toggle
+      searchTerm = '';
+      if (searchTarget === 'collections') {
+        renderCollections();
+      } else {
+        renderTabsList();
+      }
+    }
   }
 
   // --- Link Editing Logic ---
@@ -817,7 +843,7 @@ document.addEventListener('DOMContentLoaded', () => {
       try {
         const rawData = JSON.parse(e.target.result);
         if (rawData && rawData.version === 3 && Array.isArray(rawData.lists)) {
-          // for debugging: console.log('Detected Toby format.');
+          // Foreign format
           isTobyFormat = true;
           importedCollections = rawData.lists.map((list) => {
             if (typeof list !== 'object' || list === null || typeof list.title !== 'string' || !Array.isArray(list.cards)) throw new Error(`Invalid Toby list: ${list.title || 'Untitled'}`);
@@ -829,7 +855,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return { id: Date.now() + Math.random(), name: list.title.trim() || 'Untitled Toby Collection', isCollapsed: false, links: convertedLinks };
           });
         } else if (Array.isArray(rawData)) {
-          // for debugging: console.log('Assuming native format.');
+          // Native format
           importedCollections = rawData.map((c, index) => {
             if (typeof c !== 'object' || c === null || typeof c.name !== 'string' || !Array.isArray(c.links)) throw new Error(`Invalid native collection ${index}.`);
             const validatedLinks = c.links.map((l, linkIndex) => {
@@ -919,9 +945,10 @@ document.addEventListener('DOMContentLoaded', () => {
   collectionsContainer.addEventListener('drop', handleCollectionDrop); // For reordering collections
   collapseAllBtn.addEventListener('click', toggleCollapseAll); // Listener for collapse all
   searchInput.addEventListener('input', handleSearchInput); // Listener for search
+  searchToggleContainer.addEventListener('change', handleSearchTargetChange); // Listener for toggle
 
-  loadData();
-  fetchOpenTabs(); 
+  loadData(); // Initial load
+  fetchOpenTabs(); // Initial fetch
   if (isExtensionContext()) {
     browser.storage.onChanged.addListener((changes, area) => {
       if (area === 'local' && changes.collections) {
