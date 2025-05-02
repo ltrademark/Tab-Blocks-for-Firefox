@@ -1,17 +1,17 @@
 document.addEventListener('DOMContentLoaded', () => {
   // --- State ---
-  let collections = []; // Holds the array of {id, name, isCollapsed, links: [{id, title, url, favIconUrl?}]}
-  let openTabs = []; // Holds array of {id, title, url, favIconUrl}
-  let draggedTab = null; // Info about the tab being dragged {title, url, favIconUrl?}
-  let draggedLinkInfo = null; // Info about the link block being dragged { linkId, sourceCollectionId, linkData: {title, url, favIconUrl} }
-  let draggedCollectionId = null; // ID of the collection being dragged for reordering
-  let dragOverCollectionId = null; // ID of collection being dragged over (for links OR blocks)
-  let reorderTargetInfo = null; // { element: targetElement, position: 'top' | 'bottom', targetId: string }
-  let editingLinkId = null; // ID of the link currently being edited {collectionId, linkId}
+  let collections = [];
+  let openTabs = [];
+  let draggedTab = null;
+  let draggedLinkInfo = null;
+  let draggedCollectionId = null;
+  let dragOverCollectionId = null;
+  let reorderTargetInfo = null;
+  let editingLinkId = null;
   let editingLinkOriginalTitle = '';
-  let allCollapsed = false; // State for the "Collapse All" button
-  let searchTerm = ''; // State for search term
-  let searchTarget = 'collections'; // 'collections' or 'tabs', default to collections
+  let allCollapsed = false;
+  let searchTerm = '';
+  let searchTarget = 'collections';
 
   // --- DOM References ---
   const collectionsContainer = document.getElementById('collections-container');
@@ -31,10 +31,21 @@ document.addEventListener('DOMContentLoaded', () => {
   const expandAllIconSVG = `<svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="7 13 12 18 17 13"></polyline><polyline points="7 6 12 11 17 6"></polyline></svg>`;
   const deleteIconSVG = `<svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: auto;"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`;
   const dragHandleIconSVG = `<div class="f-icon f-fill"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M13 4C13 4.55228 12.5523 5 12 5C11.4477 5 11 4.55228 11 4C11 3.44772 11.4477 3 12 3C12.5523 3 13 3.44772 13 4Z" fill="currentColor"/><path d="M13 9C13 9.55228 12.5523 10 12 10C11.4477 10 11 9.55228 11 9C11 8.44772 11.4477 8 12 8C12.5523 8 13 8.44772 13 9Z" fill="currentColor"/><path d="M13 14C13 14.5523 12.5523 15 12 15C11.4477 15 11 14.5523 11 14C11 13.4477 11.4477 13 12 13C12.5523 13 13 13.4477 13 14Z" fill="currentColor"/><path d="M13 19C13 19.5523 12.5523 20 12 20C11.4477 20 11 19.5523 11 19C11 18.4477 11.4477 18 12 18C12.5523 18 13 18.4477 13 19Z" fill="currentColor"/><path d="M8 4C8 4.55228 7.55228 5 7 5C6.44772 5 6 4.55228 6 4C6 3.44772 6.44772 3 7 3C7.55228 3 8 3.44772 8 4Z" fill="currentColor"/><path d="M8 9C8 9.55228 7.55228 10 7 10C6.44772 10 6 9.55228 6 9C6 8.44772 6.44772 8 7 8C7.55228 8 8 8.44772 8 9Z" fill="currentColor"/><path d="M8 14C8 14.5523 7.55228 15 7 15C6.44772 15 6 14.5523 6 14C6 13.4477 6.44772 13 7 13C7.55228 13 8 13.4477 8 14Z" fill="currentColor"/><path d="M8 19C8 19.5523 7.55228 20 7 20C6.44772 20 6 19.5523 6 19C6 18.4477 6.44772 18 7 18C7.55228 18 8 18.4477 8 19Z" fill="currentColor"/><path d="M18 4C18 4.55228 17.5523 5 17 5C16.4477 5 16 4.55228 16 4C16 3.44772 16.4477 3 17 3C17.5523 3 18 3.44772 18 4Z" fill="currentColor"/><path d="M18 9C18 9.55228 17.5523 10 17 10C16.4477 10 16 9.55228 16 9C16 8.44772 16.4477 8 17 8C17.5523 8 18 8.44772 18 9Z" fill="currentColor"/><path d="M18 14C18 14.5523 17.5523 15 17 15C16.4477 15 16 14.5523 16 14C16 13.4477 16.4477 13 17 13C17.5523 13 18 13.4477 18 14Z" fill="currentColor"/><path d="M18 19C18 19.5523 17.5523 20 17 20C16.4477 20 16 19.5523 16 19C16 18.4477 16.4477 18 17 18C17.5523 18 18 18.4477 18 19Z" fill="currentColor"/></svg></div>`;
-  const editIconSVG = `<i class="fas fa-pencil-alt"></i>`;
+  const editIconSVG = `<svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>`;
 
   // --- Utility Functions ---
   const isExtensionContext = () => typeof browser !== 'undefined' && browser.runtime?.id;
+
+  /** Safely sets the content of an element, preferring textContent */
+  function setElementContent(element, content, isHtml = false) {
+    if (!element) return;
+    if (isHtml) {
+      element.innerHTML = '';
+      element.insertAdjacentHTML('afterbegin', content);
+    } else {
+      element.textContent = content;
+    }
+  }
 
   // --- Rendering Functions ---
 
@@ -45,9 +56,8 @@ document.addEventListener('DOMContentLoaded', () => {
     linkBlock.dataset.collectionId = collectionId;
     linkBlock.dataset.linkId = link.id;
     linkBlock.title = `Go to: ${link.url}`;
-    linkBlock.draggable = true; // Make the link block draggable
+    linkBlock.draggable = true;
 
-    // Add drag listeners for moving link blocks
     linkBlock.addEventListener('dragstart', handleLinkBlockDragStart);
     linkBlock.addEventListener('dragend', handleLinkBlockDragEnd);
 
@@ -65,7 +75,7 @@ document.addEventListener('DOMContentLoaded', () => {
     titleArea.className = 'link-title-area';
     const titleDisplay = document.createElement('span');
     titleDisplay.className = 'link-title-display';
-    titleDisplay.textContent = link.title || 'Untitled Link';
+    setElementContent(titleDisplay, link.title || 'Untitled Link');
     titleDisplay.title = link.title || 'Untitled Link';
     const editInput = document.createElement('input');
     editInput.type = 'text';
@@ -79,12 +89,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const deleteBtn = document.createElement('button');
     deleteBtn.className = 'delete-link-btn';
     deleteBtn.title = 'Remove Link';
-    deleteBtn.innerHTML = '&times;';
+    setElementContent(deleteBtn, '×');
     deleteBtn.dataset.action = 'delete-link';
     const editBtn = document.createElement('button');
     editBtn.className = 'edit-link-btn';
     editBtn.title = 'Edit title';
-    editBtn.innerHTML = editIconSVG;
+    setElementContent(editBtn, `<div class="f-icon">${editIconSVG}</div>`, true);
     editBtn.dataset.action = 'edit-link';
     topRow.appendChild(editBtn);
     topRow.appendChild(linkFavicon);
@@ -96,7 +106,7 @@ document.addEventListener('DOMContentLoaded', () => {
     bottomRow.className = 'link-bottom-row';
     const urlDisplay = document.createElement('span');
     urlDisplay.className = 'link-url';
-    urlDisplay.textContent = link.url;
+    setElementContent(urlDisplay, link.url);
     urlDisplay.title = link.url;
     bottomRow.appendChild(urlDisplay);
 
@@ -120,7 +130,7 @@ document.addEventListener('DOMContentLoaded', () => {
     dragHandle.className = 'drag-handle';
     dragHandle.title = 'Drag to reorder collection';
     dragHandle.draggable = true;
-    dragHandle.innerHTML = dragHandleIconSVG;
+    setElementContent(dragHandle, dragHandleIconSVG, true);
     dragHandle.addEventListener('dragstart', handleCollectionDragStart);
     dragHandle.addEventListener('dragend', handleCollectionDragEnd);
     const titleInput = document.createElement('input');
@@ -135,14 +145,13 @@ document.addEventListener('DOMContentLoaded', () => {
     collapseBtn.classList.add('collapse-btn', 'btn', 'btn-default', 'btn-sm', 'btn-sq');
     collapseBtn.title = collection.isCollapsed ? 'Expand Collection' : 'Collapse Collection';
     collapseBtn.dataset.action = 'toggle-collapse';
-    collapseBtn.innerHTML = `<div class="f-icon">${collapseIconSVG}</div>`;
+    setElementContent(collapseBtn, `<div class="f-icon">${collapseIconSVG}</div>`, true);
     const deleteCollectionBtn = document.createElement('button');
     deleteCollectionBtn.classList.add('delete-collection-btn', 'btn', 'btn-danger', 'btn-sm', 'btn-sq');
     deleteCollectionBtn.title = 'Delete Collection';
-    // deleteCollectionBtn.textContent = 'Delete';
-    deleteCollectionBtn.innerHTML = `<div class="f-icon">${deleteIconSVG}</div>`;
+    setElementContent(deleteCollectionBtn, `<div class="f-icon">${deleteIconSVG}</div>`, true);
     deleteCollectionBtn.dataset.action = 'delete-collection';
-    actionsDiv.appendChild(deleteCollectionBtn); // Order buttons
+    actionsDiv.appendChild(deleteCollectionBtn);
     actionsDiv.appendChild(collapseBtn);
     header.appendChild(dragHandle);
     header.appendChild(titleInput);
@@ -151,7 +160,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const linksGrid = document.createElement('div');
     linksGrid.className = 'links-grid';
 
-    // Use the provided filteredLinks array for rendering
     if (filteredLinks && filteredLinks.length > 0) {
       filteredLinks.forEach((link) => {
         linksGrid.appendChild(createLinkElement(link, collection.id));
@@ -159,16 +167,15 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
       const emptyMsg = document.createElement('div');
       emptyMsg.className = 'empty-collection-message';
-      emptyMsg.textContent = searchTerm ? 'No matching links found.' : 'Drag tabs here to add links.';
+      setElementContent(emptyMsg, searchTerm ? 'No matching links found.' : 'Drag tabs here to add links.');
       linksGrid.appendChild(emptyMsg);
     }
 
     collectionDiv.appendChild(header);
     collectionDiv.appendChild(linksGrid);
-    collectionDiv.addEventListener('dragover', handleLinkDragOver); // Handles both link and block dragover
-    collectionDiv.addEventListener('dragleave', handleLinkDragLeave); // Handles both
-    collectionDiv.addEventListener('drop', handleDrop); // Unified drop handler
-
+    collectionDiv.addEventListener('dragover', handleLinkDragOver);
+    collectionDiv.addEventListener('dragleave', handleLinkDragLeave);
+    collectionDiv.addEventListener('drop', handleDrop);
     return collectionDiv;
   }
 
@@ -176,11 +183,9 @@ document.addEventListener('DOMContentLoaded', () => {
   function renderCollections() {
     // for debugging: console.log(`Rendering collections (filter: "${searchTerm}")...`);
     const scrollTop = collectionsContainer.scrollTop;
-    collectionsContainer.innerHTML = ''; // Clear previous
+    collectionsContainer.innerHTML = '';
 
     const lowerSearchTerm = searchTerm.toLowerCase();
-
-    // Filter collections based on name or link content
     const filteredCollections = collections.filter((collection) => {
       if (!lowerSearchTerm) return true;
       const nameMatch = collection.name.toLowerCase().includes(lowerSearchTerm);
@@ -189,35 +194,37 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     if (filteredCollections.length === 0) {
-      collectionsContainer.innerHTML = `<div class="empty-main-message">${searchTerm ? 'No collections or links match your search.' : 'No collections yet.'}</div>`;
+      const emptyMsgDiv = document.createElement('div');
+      emptyMsgDiv.className = 'empty-main-message';
+      setElementContent(emptyMsgDiv, searchTerm ? 'No collections or links match your search.' : 'No collections yet.');
+      collectionsContainer.appendChild(emptyMsgDiv);
       return;
     }
 
     filteredCollections.forEach((collection) => {
-      // Filter links within the matching collection
       const filteredLinks = !lowerSearchTerm ? collection.links : collection.links.filter((link) => (link.title || '').toLowerCase().includes(lowerSearchTerm) || (link.url || '').toLowerCase().includes(lowerSearchTerm));
-      // Only render the collection if the search term is empty OR if there are matching links after filtering
       if (!lowerSearchTerm || filteredLinks.length > 0) {
         collectionsContainer.appendChild(createCollectionElement(collection, filteredLinks));
       }
     });
 
     collectionsContainer.scrollTop = scrollTop;
-    // for debugging: console.log('Filtered collections rendered.');
+    // for debugging: console.log("Filtered collections rendered.");
   }
 
   /** Renders the list of open tabs, applying search filter */
   function renderTabsList() {
     // for debugging: console.log(`Rendering tabs list (filter: "${searchTerm}")...`);
-    tabsListContainer.innerHTML = ''; // Clear previous
+    tabsListContainer.innerHTML = '';
 
     const lowerSearchTerm = searchTerm.toLowerCase();
-
-    // Filter open tabs
     const filteredTabs = !lowerSearchTerm ? openTabs : openTabs.filter((tab) => (tab.title || '').toLowerCase().includes(lowerSearchTerm) || (tab.url || '').toLowerCase().includes(lowerSearchTerm));
 
     if (filteredTabs.length === 0) {
-      tabsListContainer.innerHTML = `<div class="empty-collection-message">${searchTerm ? 'No open tabs match your search.' : 'No other open tabs found.'}</div>`;
+      const emptyMsgDiv = document.createElement('div');
+      emptyMsgDiv.className = 'empty-collection-message';
+      setElementContent(emptyMsgDiv, searchTerm ? 'No open tabs match your search.' : 'No other open tabs found.');
+      tabsListContainer.appendChild(emptyMsgDiv);
       return;
     }
 
@@ -229,7 +236,6 @@ document.addEventListener('DOMContentLoaded', () => {
       tabDiv.dataset.tabUrl = tab.url;
       tabDiv.dataset.tabTitle = tab.title;
       if (tab.favIconUrl) tabDiv.dataset.tabFavicon = tab.favIconUrl;
-
       const favicon = document.createElement('img');
       favicon.className = 'favicon';
       favicon.src = tab.favIconUrl || './icons/placeholder-favicon.png';
@@ -237,18 +243,15 @@ document.addEventListener('DOMContentLoaded', () => {
       favicon.onerror = () => {
         favicon.style.display = 'none';
       };
-
       tabDiv.appendChild(favicon);
       tabDiv.appendChild(document.createTextNode(` ${tab.title || tab.url}`));
       tabDiv.addEventListener('dragstart', handleDragStart);
       tabsListContainer.appendChild(tabDiv);
     });
-    // for debugging: console.log('Filtered tabs list rendered.');
+    // for debugging: console.log("Filtered tabs list rendered.");
   }
 
   // --- Event Handlers ---
-
-  // -- Tab Drag/Drop Handlers --
   function handleDragStart(event) {
     const tabItem = event.target.closest('.tab-item');
     if (!tabItem) return;
@@ -261,54 +264,13 @@ document.addEventListener('DOMContentLoaded', () => {
     event.dataTransfer.effectAllowed = 'copy';
     // for debugging: console.log('Dragging tab:', draggedTab.title);
   }
-
-  // -- Link Block Drag/Drop Handlers --
-  function handleLinkBlockDragStart(event) {
-    const linkBlock = event.target.closest('.link-block');
-    if (!linkBlock || editingLinkId?.linkId === linkBlock.dataset.linkId) {
-      event.preventDefault(); // Prevent drag if editing this link
-      return;
-    }
-
-    const sourceCollectionId = linkBlock.dataset.collectionId;
-    const linkId = linkBlock.dataset.linkId;
-    const sourceCollection = collections.find((c) => c.id == sourceCollectionId);
-    const linkData = sourceCollection?.links.find((l) => l.id == linkId);
-
-    if (!linkData) {
-      console.error('Could not find link data for dragged block.');
-      event.preventDefault();
-      return;
-    }
-
-    draggedLinkInfo = { linkId, sourceCollectionId, linkData }; // Store full info
-    event.dataTransfer.setData('application/link-block+json', JSON.stringify(draggedLinkInfo));
-    event.dataTransfer.effectAllowed = 'move';
-    setTimeout(() => linkBlock.classList.add('dragging'), 0);
-    // for debugging: console.log(`Dragging link block: ${linkData.title} from ${sourceCollectionId}`);
-  }
-
-  function handleLinkBlockDragEnd(event) {
-    const linkBlock = event.target.closest('.link-block');
-    linkBlock?.classList.remove('dragging');
-    draggedLinkInfo = null;
-    if (dragOverCollectionId) {
-      collectionsContainer.querySelector(`.collection[data-collection-id="${dragOverCollectionId}"]`)?.classList.remove('drag-over');
-      dragOverCollectionId = null;
-    }
-    // for debugging: console.log('Link block drag end');
-  }
-
-  // -- Shared Drag Over/Leave/Drop Handlers for Collections --
   function handleLinkDragOver(event) {
-    // Handles BOTH tab links and link blocks over a collection
     event.preventDefault();
     const collectionDiv = event.target.closest('.collection');
     if (!collectionDiv || collectionDiv.dataset.collectionId === draggedCollectionId) {
       event.dataTransfer.dropEffect = 'none';
       return;
     }
-
     const currentCollectionId = collectionDiv.dataset.collectionId;
     const isDraggingLinkBlock = event.dataTransfer.types.includes('application/link-block+json');
 
@@ -330,9 +292,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     event.dataTransfer.dropEffect = isDraggingLinkBlock ? 'move' : 'copy';
   }
-
   function handleLinkDragLeave(event) {
-    // Handles BOTH tab links and link blocks leaving a collection
     const collectionDiv = event.target.closest('.collection');
     if (collectionDiv && !collectionDiv.contains(event.relatedTarget)) {
       if (dragOverCollectionId === collectionDiv.dataset.collectionId) {
@@ -341,9 +301,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
   }
-
   function handleDrop(event) {
-    // Unified Drop Handler for Collections
     event.preventDefault();
     const collectionDiv = event.target.closest('.collection');
     if (!collectionDiv) {
@@ -406,9 +364,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     cleanupAfterDrop();
   }
-
   function cleanupAfterDrop() {
-    // General cleanup after any drop on collection
     if (dragOverCollectionId) {
       collectionsContainer.querySelector(`.collection[data-collection-id="${dragOverCollectionId}"]`)?.classList.remove('drag-over');
     }
@@ -416,8 +372,37 @@ document.addEventListener('DOMContentLoaded', () => {
     draggedLinkInfo = null;
     dragOverCollectionId = null;
   }
-
-  // -- Collection Reorder Drag/Drop Handlers --
+  function handleLinkBlockDragStart(event) {
+    const linkBlock = event.target.closest('.link-block');
+    if (!linkBlock || editingLinkId?.linkId === linkBlock.dataset.linkId) {
+      event.preventDefault();
+      return;
+    }
+    const sourceCollectionId = linkBlock.dataset.collectionId;
+    const linkId = linkBlock.dataset.linkId;
+    const sourceCollection = collections.find((c) => c.id == sourceCollectionId);
+    const linkData = sourceCollection?.links.find((l) => l.id == linkId);
+    if (!linkData) {
+      console.error('Could not find link data for dragged block.');
+      event.preventDefault();
+      return;
+    }
+    draggedLinkInfo = { linkId, sourceCollectionId, linkData };
+    event.dataTransfer.setData('application/link-block+json', JSON.stringify(draggedLinkInfo));
+    event.dataTransfer.effectAllowed = 'move';
+    setTimeout(() => linkBlock.classList.add('dragging'), 0);
+    // for debugging: console.log(`Dragging link block: ${linkData.title} from ${sourceCollectionId}`);
+  }
+  function handleLinkBlockDragEnd(event) {
+    const linkBlock = event.target.closest('.link-block');
+    linkBlock?.classList.remove('dragging');
+    draggedLinkInfo = null;
+    if (dragOverCollectionId) {
+      collectionsContainer.querySelector(`.collection[data-collection-id="${dragOverCollectionId}"]`)?.classList.remove('drag-over');
+      dragOverCollectionId = null;
+    }
+    // for debugging: console.log('Link block drag end');
+  }
   function handleCollectionDragStart(event) {
     const handle = event.target.closest('.drag-handle');
     if (!handle) return;
@@ -430,7 +415,6 @@ document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => collectionDiv.classList.add('dragging'), 0);
     // for debugging: console.log('Dragging collection:', draggedCollectionId);
   }
-
   function handleCollectionDragEnd(event) {
     const draggedElement = collectionsContainer.querySelector(`.collection[data-collection-id="${draggedCollectionId}"]`);
     draggedElement?.classList.remove('dragging');
@@ -439,7 +423,6 @@ document.addEventListener('DOMContentLoaded', () => {
     reorderTargetInfo = null;
     // for debugging: console.log('Collection drag end');
   }
-
   function handleCollectionDragOver(event) {
     event.preventDefault();
     if (!draggedCollectionId) return;
@@ -457,7 +440,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let hoverPosition = null;
     if (event.clientY < verticalMidpoint - deadZone / 2) hoverPosition = 'top';
     else if (event.clientY > verticalMidpoint + deadZone / 2) hoverPosition = 'bottom';
-
     if (hoverPosition && (!reorderTargetInfo || reorderTargetInfo.element !== targetElement || reorderTargetInfo.position !== hoverPosition)) {
       clearReorderIndicators();
       targetElement.classList.add(hoverPosition === 'top' ? 'reorder-over-top' : 'reorder-over-bottom');
@@ -468,14 +450,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     event.dataTransfer.dropEffect = hoverPosition ? 'move' : 'none';
   }
-
   function handleCollectionDragLeaveContainer(event) {
     if (!collectionsContainer.contains(event.relatedTarget)) {
       clearReorderIndicators();
       reorderTargetInfo = null;
     }
   }
-
   function handleCollectionDrop(event) {
     event.preventDefault();
     clearReorderIndicators();
@@ -505,80 +485,56 @@ document.addEventListener('DOMContentLoaded', () => {
     saveData();
     // for debugging: console.log('Collection reorder complete.');
   }
-
   function clearReorderIndicators() {
     collectionsContainer.querySelectorAll('.collection.reorder-over-top, .collection.reorder-over-bottom').forEach((el) => {
       el.classList.remove('reorder-over-top', 'reorder-over-bottom');
     });
   }
-
-  // -- Other Event Handlers --
   function handleCollectionsClick(event) {
     const target = event.target;
     const action = target.dataset.action || target.closest('[data-action]')?.dataset.action;
     const linkBlock = target.closest('.link-block');
     const collectionDiv = target.closest('.collection');
     const collectionId = collectionDiv?.dataset.collectionId;
-
     if (!action) {
       if (linkBlock && linkBlock.contains(target) && !target.closest('button') && target.tagName !== 'INPUT') {
         const linkId = linkBlock.dataset.linkId;
         const collection = collections.find((c) => c.id == collectionId);
         const link = collection?.links.find((l) => l.id == linkId);
-        if (link) {
-          navigateToLink(event, link.url);
-        }
+        if (link) navigateToLink(event, link.url);
       }
       return;
     }
     event.stopPropagation();
-    if (action === 'delete-link' && linkBlock && collectionId) {
-      deleteLink(collectionId, linkBlock.dataset.linkId);
-    } else if (action === 'edit-link' && linkBlock && collectionId) {
-      startEditingLink(collectionId, linkBlock.dataset.linkId, linkBlock);
-    } else if (action === 'delete-collection' && collectionId) {
-      deleteCollectionById(collectionId);
-    } else if (action === 'toggle-collapse' && collectionId) {
-      toggleCollectionCollapse(collectionId);
-    }
+    if (action === 'delete-link' && linkBlock && collectionId) deleteLink(collectionId, linkBlock.dataset.linkId);
+    else if (action === 'edit-link' && linkBlock && collectionId) startEditingLink(collectionId, linkBlock.dataset.linkId, linkBlock);
+    else if (action === 'delete-collection' && collectionId) deleteCollectionById(collectionId);
+    else if (action === 'toggle-collapse' && collectionId) toggleCollectionCollapse(collectionId);
   }
-
   function handleCollectionsInput(event) {
     const target = event.target;
     const action = target.dataset.action;
     if (action === 'edit-collection-title') {
       const collectionDiv = target.closest('.collection');
       const collectionId = collectionDiv?.dataset.collectionId;
-      if (collectionId) {
-        updateCollectionTitle(collectionId, target.value);
-      }
+      if (collectionId) updateCollectionTitle(collectionId, target.value);
     }
   }
-
-  // --- Search Handler ---
   function handleSearchInput() {
     searchTerm = searchInput.value.trim();
-    if (searchTarget === 'collections') {
-      renderCollections();
-    } else {
-      renderTabsList();
-    }
+    if (searchTarget === 'collections') renderCollections();
+    else renderTabsList();
   }
-
-  // --- Search Target Toggle Handler ---
   function handleSearchTargetChange(event) {
     if (event.target.name === 'search-target') {
       searchTarget = event.target.value;
       // for debugging: console.log('Search target changed to:', searchTarget);
       searchInput.placeholder = searchTarget === 'collections' ? 'Search Collections...' : 'Search Open Tabs...';
       searchInput.ariaLabel = searchTarget === 'collections' ? 'Search Collections' : 'Search Open Tabs';
-      searchInput.value = ''; // Clear input on toggle
+      searchInput.value = '';
       searchTerm = '';
-      if (searchTarget === 'collections') {
-        renderCollections();
-      } else {
-        renderTabsList();
-      }
+      if (searchTarget === 'collections') renderCollections();
+      else renderTabsList();
     }
   }
 
@@ -598,7 +554,6 @@ document.addEventListener('DOMContentLoaded', () => {
     editInput.addEventListener('blur', handleEditBlur, { once: true });
     editInput.addEventListener('keydown', handleEditKeydown);
   }
-
   function finishEditingLink(save = true) {
     if (!editingLinkId) return;
     const { collectionId, linkId } = editingLinkId;
@@ -633,7 +588,6 @@ document.addEventListener('DOMContentLoaded', () => {
       saveData();
     }
   }
-
   function handleEditBlur(event) {
     setTimeout(() => {
       if (editingLinkId && editingLinkId.linkId == event.target.dataset.linkId) {
@@ -641,7 +595,6 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }, 150);
   }
-
   function handleEditKeydown(event) {
     if (event.key === 'Enter') {
       event.preventDefault();
@@ -650,7 +603,6 @@ document.addEventListener('DOMContentLoaded', () => {
       finishEditingLink(false);
     }
   }
-
   function resetEditState() {
     editingLinkId = null;
     editingLinkOriginalTitle = '';
@@ -673,7 +625,6 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }, 0);
   }
-
   function deleteLink(collectionId, linkId) {
     const cIndex = collections.findIndex((c) => c.id == collectionId);
     if (cIndex === -1) return;
@@ -684,7 +635,6 @@ document.addEventListener('DOMContentLoaded', () => {
     saveData();
     // for debugging: console.log(`Deleted link ${linkId}`);
   }
-
   function deleteCollectionById(collectionId) {
     const index = collections.findIndex((c) => c.id == collectionId);
     if (index === -1) return;
@@ -695,7 +645,6 @@ document.addEventListener('DOMContentLoaded', () => {
       // for debugging: console.log(`Deleted collection ${collectionId}`);
     }
   }
-
   function updateCollectionTitle(collectionId, newName) {
     const collection = collections.find((c) => c.id == collectionId);
     const trimmedName = newName.trim();
@@ -707,7 +656,6 @@ document.addEventListener('DOMContentLoaded', () => {
       if (input) input.value = collection.name;
     }
   }
-
   function navigateToLink(event, url) {
     if (!url || url === '#') return;
     const openInNewTab = event.ctrlKey || event.metaKey;
@@ -742,7 +690,6 @@ document.addEventListener('DOMContentLoaded', () => {
     updateCollapseAllButtonState();
     saveData();
   }
-
   function toggleCollapseAll() {
     allCollapsed = !allCollapsed;
     // for debugging: console.log(`Toggling all collections to collapsed: ${allCollapsed}`);
@@ -758,11 +705,10 @@ document.addEventListener('DOMContentLoaded', () => {
     updateCollapseAllButtonState();
     saveData();
   }
-
   function updateCollapseAllButtonState() {
     const currentlyAllCollapsed = collections.length > 0 && collections.every((c) => c.isCollapsed);
     allCollapsed = currentlyAllCollapsed;
-    collapseAllBtn.innerHTML = `<div class="f-icon">${currentlyAllCollapsed ? expandAllIconSVG : collapseAllIconSVG}</div>`;
+    setElementContent(collapseAllBtn, `<div class="f-icon">${currentlyAllCollapsed ? expandAllIconSVG : collapseAllIconSVG}</div>`, true);
     collapseAllBtn.title = currentlyAllCollapsed ? 'Expand All Collections' : 'Collapse All Collections';
     collapseAllBtn.classList.toggle('all-collapsed', currentlyAllCollapsed);
   }
@@ -788,7 +734,6 @@ document.addEventListener('DOMContentLoaded', () => {
       updateCollapseAllButtonState();
     }
   }
-
   async function saveData() {
     if (!isExtensionContext() || !browser.storage) {
       console.warn('Storage API not available. Save skipped.');
@@ -802,7 +747,6 @@ document.addEventListener('DOMContentLoaded', () => {
       console.error('Error saving data:', error);
     }
   }
-
   async function fetchOpenTabs() {
     // for debugging: console.log('Fetching open tabs...');
     tabsListContainer.innerHTML = '<div class="loading-indicator">Loading tabs...</div>';
@@ -823,11 +767,9 @@ document.addEventListener('DOMContentLoaded', () => {
       renderTabsList();
     }
   }
-
   function triggerImport() {
     importFileInput.click();
   }
-
   function importData(event) {
     const file = event.target.files?.[0];
     const inputElement = event.target;
@@ -845,7 +787,7 @@ document.addEventListener('DOMContentLoaded', () => {
       try {
         const rawData = JSON.parse(e.target.result);
         if (rawData && rawData.version === 3 && Array.isArray(rawData.lists)) {
-          // Foreign format
+          // for debugging: console.log('Detected Toby format.');
           isTobyFormat = true;
           importedCollections = rawData.lists.map((list) => {
             if (typeof list !== 'object' || list === null || typeof list.title !== 'string' || !Array.isArray(list.cards)) throw new Error(`Invalid Toby list: ${list.title || 'Untitled'}`);
@@ -857,7 +799,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return { id: Date.now() + Math.random(), name: list.title.trim() || 'Untitled Toby Collection', isCollapsed: false, links: convertedLinks };
           });
         } else if (Array.isArray(rawData)) {
-          // Native format
+          // for debugging: console.log('Assuming native format.');
           importedCollections = rawData.map((c, index) => {
             if (typeof c !== 'object' || c === null || typeof c.name !== 'string' || !Array.isArray(c.links)) throw new Error(`Invalid native collection ${index}.`);
             const validatedLinks = c.links.map((l, linkIndex) => {
@@ -865,15 +807,13 @@ document.addEventListener('DOMContentLoaded', () => {
               const title = typeof l.title === 'string' && l.title.trim() ? l.title.trim() : l.url || 'Untitled Link';
               return { id: l.id || Date.now() + Math.random(), url: l.url, title: title, favIconUrl: l.favIconUrl || null };
             });
-            return { id: c.id || Date.now() + Math.random(), name: c.name.trim() || `Collection ${index + 1}`, isCollapsed: c.isCollapsed || false, links: validatedLinks }; // Load collapsed state
+            return { id: c.id || Date.now() + Math.random(), name: c.name.trim() || `Collection ${index + 1}`, isCollapsed: c.isCollapsed || false, links: validatedLinks };
           });
         } else {
           throw new Error('Unknown import format.');
         }
-
         let replace = true;
         if (isTobyFormat) replace = !confirm('Toby data detected. Add these collections? (Cancel will replace all)');
-
         if (replace) {
           if (confirm('Replace ALL current collections?')) {
             collections = importedCollections;
@@ -886,7 +826,6 @@ document.addEventListener('DOMContentLoaded', () => {
           collections = collections.concat(importedCollections);
           alert(`Import successful! ${importedCollections.length} collections added.`);
         }
-
         renderCollections();
         saveData();
         updateCollapseAllButtonState();
@@ -904,7 +843,6 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     reader.readAsText(file);
   }
-
   function exportData() {
     try {
       const dataStr = JSON.stringify(collections, null, 2);
@@ -941,16 +879,16 @@ document.addEventListener('DOMContentLoaded', () => {
   importBtn.addEventListener('click', triggerImport);
   importFileInput.addEventListener('change', importData);
   collectionsContainer.addEventListener('click', handleCollectionsClick);
-  collectionsContainer.addEventListener('change', handleCollectionsInput); // For title input blur/change
-  collectionsContainer.addEventListener('dragover', handleCollectionDragOver); // For reordering collections
-  collectionsContainer.addEventListener('dragleave', handleCollectionDragLeaveContainer); // For reordering collections
-  collectionsContainer.addEventListener('drop', handleCollectionDrop); // For reordering collections
-  collapseAllBtn.addEventListener('click', toggleCollapseAll); // Listener for collapse all
-  searchInput.addEventListener('input', handleSearchInput); // Listener for search
-  searchToggleContainer.addEventListener('change', handleSearchTargetChange); // Listener for toggle
+  collectionsContainer.addEventListener('change', handleCollectionsInput);
+  collectionsContainer.addEventListener('dragover', handleCollectionDragOver);
+  collectionsContainer.addEventListener('dragleave', handleCollectionDragLeaveContainer);
+  collectionsContainer.addEventListener('drop', handleCollectionDrop);
+  collapseAllBtn.addEventListener('click', toggleCollapseAll);
+  searchInput.addEventListener('input', handleSearchInput);
+  searchToggleContainer.addEventListener('change', handleSearchTargetChange);
 
-  loadData(); // Initial load
-  fetchOpenTabs(); // Initial fetch
+  loadData();
+  fetchOpenTabs();
   if (isExtensionContext()) {
     browser.storage.onChanged.addListener((changes, area) => {
       if (area === 'local' && changes.collections) {
