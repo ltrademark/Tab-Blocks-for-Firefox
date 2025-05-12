@@ -1,12 +1,19 @@
-<center>
-<img alt="Fallback image description" src="./screenshots/app icons/app_icon-128.png">
-<h1>Tab Blocks for Firefox</h1>
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="./screenshots/screen-dark.png">
-  <source media="(prefers-color-scheme: light)" srcset="./screenshots/screen-light.png">
-  <img alt="Fallback image description" src="./screenshots/screen-dark.png">
-</picture>
-</center>
+<div align="center">
+  <img alt="Fallback image description" src="./screenshots/app icons/app_icon-128.png">
+  <h1>Tab Blocks for Firefox</h1>
+  <a href="https://ltrademark.com/" target="_blank"><img src="https://github.com/user-attachments/assets/b87e2497-54bf-4941-9828-4faf0318bbd6" alt="made with ❤️ by Ltrademark"></a>
+  <br/>
+  <br/>
+  <br/>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="./screenshots/screen-dark.png">
+    <source media="(prefers-color-scheme: light)" srcset="./screenshots/screen-light.png">
+    <img alt="Fallback image description" src="./screenshots/screen-dark.png">
+  </picture>
+  <br/>
+  <br/>
+  <br/>
+</div>
 
 * **Custom New Tab Page:** Provides a dedicated space for your organized links every time you open a new tab.
 * **Link Collections:**
