@@ -606,7 +606,6 @@ a {
   cursor: grab;
   white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis;
   position: relative;
   min-height: 20px;
   transition: background-color var(--near) var(--curve);
@@ -620,6 +619,16 @@ a {
     background-color: var(--accent-offset);
   }
 
+  &.has-container {
+    border-left-color: var(--container-color);
+    border-left-width: 3px;
+    background-color: color-mix(in srgb, var(--container-color) 10%, var(--background-offset));
+
+    &:hover {
+      background-color: color-mix(in srgb, var(--container-color) 20%, var(--background-offset));
+    }
+  }
+
   img.favicon {
     width: 16px;
     height: 16px;
@@ -628,6 +637,35 @@ a {
     background-color: var(--border);
     color: transparent;
     flex-shrink: 0;
+  }
+
+  .tab-title {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .close-tab-btn {
+    flex-shrink: 0;
+    opacity: 0;
+    background: none;
+    border: none;
+    color: var(--foreground-muted);
+    cursor: pointer;
+    font-size: 1.1em;
+    line-height: 1;
+    padding: 2px 4px;
+    border-radius: 3px;
+    transition: opacity var(--near) var(--curve), color var(--near) var(--curve);
+
+    &:hover {
+      color: var(--danger);
+    }
+  }
+
+  &:hover .close-tab-btn {
+    opacity: 1;
   }
 }
 

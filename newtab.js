@@ -251,6 +251,12 @@ document.addEventListener('DOMContentLoaded', () => {
       tabDiv.dataset.tabUrl = tab.url;
       tabDiv.dataset.tabTitle = tab.title;
       if (tab.favIconUrl) tabDiv.dataset.tabFavicon = tab.favIconUrl;
+      tabDiv.title = tab.title || tab.url;
+      if (tab.containerColor) {
+        tabDiv.style.setProperty('--container-color', tab.containerColor);
+        tabDiv.classList.add('has-container');
+        tabDiv.title = `[${tab.containerName}] ${tab.title || tab.url}`;
+      }
       const favicon = document.createElement('img');
       favicon.className = 'favicon';
       favicon.src = tab.favIconUrl || './icons/placeholder-favicon.png';
@@ -258,8 +264,27 @@ document.addEventListener('DOMContentLoaded', () => {
       favicon.onerror = () => {
         favicon.style.display = 'none';
       };
+      const titleSpan = document.createElement('span');
+      titleSpan.className = 'tab-title';
+      titleSpan.textContent = tab.title || tab.url;
       tabDiv.appendChild(favicon);
-      tabDiv.appendChild(document.createTextNode(` ${tab.title || tab.url}`));
+      tabDiv.appendChild(titleSpan);
+      const closeBtn = document.createElement('button');
+      closeBtn.className = 'close-tab-btn';
+      closeBtn.title = 'Close tab';
+      closeBtn.textContent = '×';
+      closeBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        if (isExtensionContext() && browser.tabs) {
+          try {
+            await browser.tabs.remove(tab.id);
+            fetchOpenTabs();
+          } catch (err) {
+            console.error('Failed to close tab:', err);
+          }
+        }
+      });
+      tabDiv.appendChild(closeBtn);
       tabDiv.addEventListener('dragstart', handleDragStart);
       tabsListContainer.appendChild(tabDiv);
     });
@@ -791,7 +816,22 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     try {
       const tabs = await browser.tabs.query({ currentWindow: true });
-      openTabs = tabs.filter((tab) => tab.url && !tab.url.startsWith('about:') && !tab.url.startsWith('moz-extension:'));
+      const filtered = tabs.filter((tab) => tab.url && !tab.url.startsWith('about:') && !tab.url.startsWith('moz-extension:'));
+
+      let identityMap = {};
+      if (browser.contextualIdentities) {
+        try {
+          const identities = await browser.contextualIdentities.query({});
+          identityMap = Object.fromEntries(identities.map((i) => [i.cookieStoreId, i]));
+        } catch (e) {
+          // Containers disabled or unavailable — proceed without colors
+        }
+      }
+
+      openTabs = filtered.map((tab) => {
+        const identity = identityMap[tab.cookieStoreId];
+        return { ...tab, containerColor: identity?.colorCode || null, containerName: identity?.name || null };
+      });
     } catch (error) {
       console.error('Error fetching tabs:', error);
       openTabs = [];
