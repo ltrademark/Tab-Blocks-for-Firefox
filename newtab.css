@@ -1,5 +1,3 @@
-@import url("https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wght@8..144,100..1000&display=swap");
-
 :root {
   --accent: #15e;
   --accent-offset: color-mix(in srgb, var(--accent) 15%, var(--background));
@@ -21,7 +19,7 @@
   --padding-small: calc(var(--padding) / 2);
   --near: 225ms;
   --curve: cubic-bezier(0.4, 0, 0.2, 1);
-  --font-family: "Roboto Flex", sans-serif;
+  --font-family: "Roboto Flex", system-ui, sans-serif;
   --font-config: normal 16px/1.5 var(--font-family);
   color-scheme: light dark;
 }
@@ -448,6 +446,26 @@ a {
     cursor: grabbing;
     opacity: 0.4;
     border-style: dashed;
+  }
+
+  &.reorder-link-before::before,
+  &.reorder-link-after::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background-color: var(--accent);
+    border-radius: 2px;
+    z-index: 2;
+  }
+
+  &.reorder-link-before::before {
+    left: -2px;
+  }
+
+  &.reorder-link-after::after {
+    right: -2px;
   }
 
   .link-top-row {

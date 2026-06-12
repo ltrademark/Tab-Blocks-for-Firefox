@@ -7,9 +7,11 @@ document.addEventListener('DOMContentLoaded', () => {
   let draggedCollectionId = null;
   let dragOverCollectionId = null;
   let reorderTargetInfo = null;
+  let reorderLinkTargetInfo = null;
   let editingLinkId = null;
   let editingLinkOriginalTitle = '';
   let allCollapsed = false;
+  let pendingSaveCount = 0;
   let searchTerm = '';
   let searchTarget = 'collections';
 
@@ -35,6 +37,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // --- Utility Functions ---
   const isExtensionContext = () => typeof browser !== 'undefined' && browser.runtime?.id;
+  const isSafeUrl = (url) => { try { return ['http:', 'https:'].includes(new URL(url).protocol); } catch { return false; } };
 
   function setElementContent(element, content, isHtml = false) {
     if (!element) return;
@@ -196,7 +199,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   /** Renders collections, applying search filter */
   function renderCollections() {
-    // for debugging: console.log(`Rendering collections (filter: "${searchTerm}")...`);
     const scrollTop = collectionsContainer.scrollTop;
     collectionsContainer.innerHTML = '';
 
@@ -224,12 +226,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     collectionsContainer.scrollTop = scrollTop;
-    // for debugging: console.log("Filtered collections rendered.");
   }
 
   /** Renders the list of open tabs, applying search filter */
   function renderTabsList() {
-    // for debugging: console.log(`Rendering tabs list (filter: "${searchTerm}")...`);
     tabsListContainer.innerHTML = '';
 
     const lowerSearchTerm = searchTerm.toLowerCase();
@@ -263,7 +263,6 @@ document.addEventListener('DOMContentLoaded', () => {
       tabDiv.addEventListener('dragstart', handleDragStart);
       tabsListContainer.appendChild(tabDiv);
     });
-    // for debugging: console.log("Filtered tabs list rendered.");
   }
 
   // --- Event Handlers ---
@@ -277,7 +276,6 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     event.dataTransfer.setData('application/json', JSON.stringify(draggedTab));
     event.dataTransfer.effectAllowed = 'copy';
-    // for debugging: console.log('Dragging tab:', draggedTab.title);
   }
   function handleLinkDragOver(event) {
     event.preventDefault();
@@ -290,10 +288,23 @@ document.addEventListener('DOMContentLoaded', () => {
     const isDraggingLinkBlock = event.dataTransfer.types.includes('application/link-block+json');
 
     if (isDraggingLinkBlock && draggedLinkInfo?.sourceCollectionId === currentCollectionId) {
-      event.dataTransfer.dropEffect = 'none';
+      event.dataTransfer.dropEffect = 'move';
       if (dragOverCollectionId === currentCollectionId) {
         collectionDiv.classList.remove('drag-over');
         dragOverCollectionId = null;
+      }
+      const targetLinkBlock = event.target.closest('.link-block');
+      if (targetLinkBlock && targetLinkBlock.dataset.linkId != draggedLinkInfo.linkId) {
+        const rect = targetLinkBlock.getBoundingClientRect();
+        const position = event.clientX < rect.left + rect.width / 2 ? 'before' : 'after';
+        if (!reorderLinkTargetInfo || reorderLinkTargetInfo.element !== targetLinkBlock || reorderLinkTargetInfo.position !== position) {
+          clearLinkReorderIndicators();
+          targetLinkBlock.classList.add(position === 'before' ? 'reorder-link-before' : 'reorder-link-after');
+          reorderLinkTargetInfo = { element: targetLinkBlock, position, linkId: targetLinkBlock.dataset.linkId, collectionId: currentCollectionId };
+        }
+      } else {
+        clearLinkReorderIndicators();
+        reorderLinkTargetInfo = null;
       }
       return;
     }
@@ -313,6 +324,10 @@ document.addEventListener('DOMContentLoaded', () => {
       if (dragOverCollectionId === collectionDiv.dataset.collectionId) {
         collectionDiv.classList.remove('drag-over');
         dragOverCollectionId = null;
+      }
+      if (reorderLinkTargetInfo?.collectionId === collectionDiv.dataset.collectionId) {
+        clearLinkReorderIndicators();
+        reorderLinkTargetInfo = null;
       }
     }
   }
@@ -337,9 +352,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (linkBlockData && draggedLinkInfo) {
       // --- Dropped an existing Link Block ---
-      // for debugging: console.log(`Moving link block to collection ${targetCollectionId}`);
       const { linkId, sourceCollectionId, linkData } = draggedLinkInfo;
       if (sourceCollectionId === targetCollectionId) {
+        if (reorderLinkTargetInfo) {
+          const targetLinkId = reorderLinkTargetInfo.linkId;
+          const position = reorderLinkTargetInfo.position;
+          const collection = collections.find((c) => c.id == targetCollectionId);
+          const draggedIndex = collection?.links.findIndex((l) => l.id == linkId);
+          const targetIndex = collection?.links.findIndex((l) => l.id == targetLinkId);
+          if (collection && draggedIndex !== -1 && targetIndex !== -1 && draggedIndex !== targetIndex) {
+            const [movedLink] = collection.links.splice(draggedIndex, 1);
+            const adjustedTarget = targetIndex > draggedIndex ? targetIndex - 1 : targetIndex;
+            collection.links.splice(position === 'before' ? adjustedTarget : adjustedTarget + 1, 0, movedLink);
+            renderCollections();
+            saveData();
+          }
+        }
         cleanupAfterDrop();
         return;
       }
@@ -358,19 +386,17 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       const [movedLink] = sourceCollection.links.splice(linkIndexInSource, 1);
       targetCollection.links.push(movedLink);
-      // for debugging: console.log(`Moved link "${movedLink.title}" from ${sourceCollectionId} to ${targetCollectionId}`);
       renderCollections();
       saveData();
     } else if (newTabData && draggedTab) {
       // --- Dropped a New Tab ---
-      // for debugging: console.log(`Dropping NEW TAB onto collection ID: ${targetCollectionId}`);
       if (targetCollection.links.some((link) => link.url === draggedTab.url)) {
         collectionDiv.classList.add('duplicate-attempt');
         setTimeout(() => collectionDiv.classList.remove('duplicate-attempt'), 600);
         cleanupAfterDrop();
         return;
       }
-      const newLink = { id: Date.now() + Math.random(), url: draggedTab.url, title: draggedTab.title || draggedTab.url, favIconUrl: draggedTab.favIconUrl };
+      const newLink = { id: crypto.randomUUID(), url: draggedTab.url, title: draggedTab.title || draggedTab.url, favIconUrl: draggedTab.favIconUrl };
       targetCollection.links.push(newLink);
       renderCollections();
       saveData();
@@ -383,13 +409,15 @@ document.addEventListener('DOMContentLoaded', () => {
     if (dragOverCollectionId) {
       collectionsContainer.querySelector(`.collection[data-collection-id="${dragOverCollectionId}"]`)?.classList.remove('drag-over');
     }
+    clearLinkReorderIndicators();
     draggedTab = null;
     draggedLinkInfo = null;
     dragOverCollectionId = null;
+    reorderLinkTargetInfo = null;
   }
   function handleLinkBlockDragStart(event) {
     const linkBlock = event.target.closest('.link-block');
-    if (!linkBlock || editingLinkId?.linkId === linkBlock.dataset.linkId) {
+    if (!linkBlock || editingLinkId?.linkId == linkBlock.dataset.linkId) {
       event.preventDefault();
       return;
     }
@@ -406,17 +434,17 @@ document.addEventListener('DOMContentLoaded', () => {
     event.dataTransfer.setData('application/link-block+json', JSON.stringify(draggedLinkInfo));
     event.dataTransfer.effectAllowed = 'move';
     setTimeout(() => linkBlock.classList.add('dragging'), 0);
-    // for debugging: console.log(`Dragging link block: ${linkData.title} from ${sourceCollectionId}`);
   }
   function handleLinkBlockDragEnd(event) {
     const linkBlock = event.target.closest('.link-block');
     linkBlock?.classList.remove('dragging');
     draggedLinkInfo = null;
+    clearLinkReorderIndicators();
+    reorderLinkTargetInfo = null;
     if (dragOverCollectionId) {
       collectionsContainer.querySelector(`.collection[data-collection-id="${dragOverCollectionId}"]`)?.classList.remove('drag-over');
       dragOverCollectionId = null;
     }
-    // for debugging: console.log('Link block drag end');
   }
   function handleCollectionDragStart(event) {
     const handle = event.target.closest('.drag-handle');
@@ -428,7 +456,6 @@ document.addEventListener('DOMContentLoaded', () => {
     event.dataTransfer.setData('text/plain', draggedCollectionId);
     event.dataTransfer.effectAllowed = 'move';
     setTimeout(() => collectionDiv.classList.add('dragging'), 0);
-    // for debugging: console.log('Dragging collection:', draggedCollectionId);
   }
   function handleCollectionDragEnd(event) {
     const draggedElement = collectionsContainer.querySelector(`.collection[data-collection-id="${draggedCollectionId}"]`);
@@ -436,7 +463,6 @@ document.addEventListener('DOMContentLoaded', () => {
     clearReorderIndicators();
     draggedCollectionId = null;
     reorderTargetInfo = null;
-    // for debugging: console.log('Collection drag end');
   }
   function handleCollectionDragOver(event) {
     event.preventDefault();
@@ -475,7 +501,6 @@ document.addEventListener('DOMContentLoaded', () => {
     event.preventDefault();
     clearReorderIndicators();
     if (!draggedCollectionId || !reorderTargetInfo) {
-      // for debugging: console.log('Collection drop ignored: missing info.');
       draggedCollectionId = null;
       reorderTargetInfo = null;
       return;
@@ -485,7 +510,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const dropPosition = reorderTargetInfo.position;
     draggedCollectionId = null;
     reorderTargetInfo = null;
-    // for debugging: console.log(`Dropping collection ${draggedId} ${dropPosition} of ${targetId}`);
     const draggedIndex = collections.findIndex((c) => c.id == draggedId);
     const targetIndex = collections.findIndex((c) => c.id == targetId);
     if (draggedIndex === -1 || targetIndex === -1 || draggedIndex === targetIndex) {
@@ -498,11 +522,15 @@ document.addEventListener('DOMContentLoaded', () => {
     collections.splice(insertAtIndex, 0, draggedItem);
     renderCollections();
     saveData();
-    // for debugging: console.log('Collection reorder complete.');
   }
   function clearReorderIndicators() {
     collectionsContainer.querySelectorAll('.collection.reorder-over-top, .collection.reorder-over-bottom').forEach((el) => {
       el.classList.remove('reorder-over-top', 'reorder-over-bottom');
+    });
+  }
+  function clearLinkReorderIndicators() {
+    collectionsContainer.querySelectorAll('.link-block.reorder-link-before, .link-block.reorder-link-after').forEach((el) => {
+      el.classList.remove('reorder-link-before', 'reorder-link-after');
     });
   }
   function handleCollectionsClick(event) {
@@ -543,7 +571,6 @@ document.addEventListener('DOMContentLoaded', () => {
   function handleSearchTargetChange(event) {
     if (event.target.name === 'search-target') {
       searchTarget = event.target.value;
-      // for debugging: console.log('Search target changed to:', searchTarget);
       searchInput.placeholder = searchTarget === 'collections' ? 'Search Collections...' : 'Search Open Tabs...';
       searchInput.ariaLabel = searchTarget === 'collections' ? 'Search Collections' : 'Search Open Tabs';
       searchInput.value = '';
@@ -599,7 +626,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const wasEditing = editingLinkId;
     resetEditState();
     if (stateChanged && wasEditing) {
-      // for debugging: console.log('Link title updated, saving...');
       saveData();
     }
   }
@@ -625,8 +651,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // --- Action Functions ---
   function addCollection() {
-    // for debugging: console.log('Adding new collection (prepending)');
-    const newCollection = { id: Date.now() + Math.random(), name: `New Collection`, isCollapsed: false, links: [] };
+    const newCollection = { id: crypto.randomUUID(), name: `New Collection`, isCollapsed: false, links: [] };
     collections.unshift(newCollection);
     renderCollections();
     saveData();
@@ -648,7 +673,6 @@ document.addEventListener('DOMContentLoaded', () => {
     collections[cIndex].links.splice(lIndex, 1);
     renderCollections();
     saveData();
-    // for debugging: console.log(`Deleted link ${linkId}`);
   }
   function deleteCollectionById(collectionId) {
     const index = collections.findIndex((c) => c.id == collectionId);
@@ -657,7 +681,6 @@ document.addEventListener('DOMContentLoaded', () => {
       collections.splice(index, 1);
       renderCollections();
       saveData();
-      // for debugging: console.log(`Deleted collection ${collectionId}`);
     }
   }
   function updateCollectionTitle(collectionId, newName) {
@@ -666,13 +689,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (collection && collection.name !== trimmedName) {
       collection.name = trimmedName || 'Untitled Collection';
       saveData();
-      // for debugging: console.log(`Updated title for collection ${collectionId}`);
       const input = collectionsContainer.querySelector(`.collection[data-collection-id="${collectionId}"] .collection-title-input`);
       if (input) input.value = collection.name;
     }
   }
   function navigateToLink(event, url) {
-    if (!url || url === '#') return;
+    if (!url || !isSafeUrl(url)) return;
     const openInNewTab = event.ctrlKey || event.metaKey;
     if (isExtensionContext() && browser.tabs) {
       if (openInNewTab) browser.tabs.create({ url: url, active: true }).catch((e) => window.open(url, '_blank'));
@@ -695,7 +717,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const collection = collections.find((c) => c.id == collectionId);
     if (!collection) return;
     collection.isCollapsed = !collection.isCollapsed;
-    // for debugging: console.log(`Collection ${collectionId} collapsed state: ${collection.isCollapsed}`);
     const collectionDiv = collectionsContainer.querySelector(`.collection[data-collection-id="${collectionId}"]`);
     const collapseBtn = collectionDiv?.querySelector('.collapse-btn');
     if (collectionDiv) {
@@ -707,7 +728,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   function toggleCollapseAll() {
     allCollapsed = !allCollapsed;
-    // for debugging: console.log(`Toggling all collections to collapsed: ${allCollapsed}`);
     collections.forEach((collection) => {
       collection.isCollapsed = allCollapsed;
       const collectionDiv = collectionsContainer.querySelector(`.collection[data-collection-id="${collection.id}"]`);
@@ -730,7 +750,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // --- Browser API Functions ---
   async function loadData() {
-    // for debugging: console.log('Loading data from storage...');
     if (!isExtensionContext() || !browser.storage) {
       console.warn('Storage API not available.');
       collections = [];
@@ -739,8 +758,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     try {
       const result = await browser.storage.local.get('collections');
-      collections = (result.collections || []).map((c) => ({ ...c, id: c.id || Date.now() + Math.random(), isCollapsed: c.isCollapsed || false, links: Array.isArray(c.links) ? c.links.map((l) => ({ ...l, id: l.id || Date.now() + Math.random(), favIconUrl: l.favIconUrl || null })) : [] }));
-      // for debugging: console.log('Data loaded:', collections.length, 'collections');
+      collections = (result.collections || []).map((c) => ({ ...c, id: c.id || crypto.randomUUID(), isCollapsed: c.isCollapsed || false, links: Array.isArray(c.links) ? c.links.map((l) => ({ ...l, id: l.id || crypto.randomUUID(), favIconUrl: l.favIconUrl || null })) : [] }));
     } catch (error) {
       console.error('Error loading data:', error);
       collections = [];
@@ -754,16 +772,16 @@ document.addEventListener('DOMContentLoaded', () => {
       console.warn('Storage API not available. Save skipped.');
       return;
     }
-    const validatedCollections = collections.map((c) => ({ id: c.id || Date.now() + Math.random(), name: typeof c.name === 'string' ? c.name.trim() || 'Untitled Collection' : 'Untitled Collection', isCollapsed: c.isCollapsed || false, links: Array.isArray(c.links) ? c.links.map((l) => ({ id: l.id || Date.now() + Math.random(), url: typeof l.url === 'string' ? l.url : '#', title: typeof l.title === 'string' && l.title.trim() ? l.title.trim() : l.url || 'Untitled Link', favIconUrl: l.favIconUrl || null })) : [] }));
+    const validatedCollections = collections.map((c) => ({ id: c.id || crypto.randomUUID(), name: typeof c.name === 'string' ? c.name.trim() || 'Untitled Collection' : 'Untitled Collection', isCollapsed: c.isCollapsed || false, links: Array.isArray(c.links) ? c.links.map((l) => ({ id: l.id || crypto.randomUUID(), url: typeof l.url === 'string' ? l.url : '#', title: typeof l.title === 'string' && l.title.trim() ? l.title.trim() : l.url || 'Untitled Link', favIconUrl: l.favIconUrl || null })) : [] }));
+    pendingSaveCount++;
     try {
       await browser.storage.local.set({ collections: validatedCollections });
-      // for debugging: console.log('Data saved to storage.');
     } catch (error) {
       console.error('Error saving data:', error);
+      pendingSaveCount = Math.max(0, pendingSaveCount - 1);
     }
   }
   async function fetchOpenTabs() {
-    // for debugging: console.log('Fetching open tabs...');
     tabsListContainer.innerHTML = '<div class="loading-indicator">Loading tabs...</div>';
     if (!isExtensionContext() || !browser.tabs) {
       console.warn('Tabs API not available.');
@@ -774,7 +792,6 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       const tabs = await browser.tabs.query({ currentWindow: true });
       openTabs = tabs.filter((tab) => tab.url && !tab.url.startsWith('about:') && !tab.url.startsWith('moz-extension:'));
-      // for debugging: console.log('Tabs fetched:', openTabs.length);
     } catch (error) {
       console.error('Error fetching tabs:', error);
       openTabs = [];
@@ -799,47 +816,47 @@ document.addEventListener('DOMContentLoaded', () => {
     reader.onload = (e) => {
       let importedCollections = [];
       let isTobyFormat = false;
+      let skippedLinks = 0;
       try {
         const rawData = JSON.parse(e.target.result);
         if (rawData && rawData.version === 3 && Array.isArray(rawData.lists)) {
-          // for debugging: console.log('Detected Toby format.');
           isTobyFormat = true;
           importedCollections = rawData.lists.map((list) => {
             if (typeof list !== 'object' || list === null || typeof list.title !== 'string' || !Array.isArray(list.cards)) throw new Error(`Invalid Toby list: ${list.title || 'Untitled'}`);
-            const convertedLinks = list.cards.map((card) => {
+            const convertedLinks = list.cards.reduce((acc, card) => {
               if (typeof card !== 'object' || card === null || typeof card.url !== 'string' || !card.url) throw new Error(`Invalid Toby card in list "${list.title}"`);
+              if (!isSafeUrl(card.url)) { skippedLinks++; return acc; }
               const title = typeof card.title === 'string' && card.title.trim() ? card.title.trim() : card.url || 'Untitled Link';
-              return { id: Date.now() + Math.random(), url: card.url, title: title, favIconUrl: null };
-            });
-            return { id: Date.now() + Math.random(), name: list.title.trim() || 'Untitled Toby Collection', isCollapsed: false, links: convertedLinks };
+              acc.push({ id: crypto.randomUUID(), url: card.url, title, favIconUrl: null });
+              return acc;
+            }, []);
+            return { id: crypto.randomUUID(), name: list.title.trim() || 'Untitled Toby Collection', isCollapsed: false, links: convertedLinks };
           });
         } else if (Array.isArray(rawData)) {
-          // for debugging: console.log('Assuming native format.');
           importedCollections = rawData.map((c, index) => {
             if (typeof c !== 'object' || c === null || typeof c.name !== 'string' || !Array.isArray(c.links)) throw new Error(`Invalid native collection ${index}.`);
-            const validatedLinks = c.links.map((l, linkIndex) => {
+            const validatedLinks = c.links.reduce((acc, l, linkIndex) => {
               if (typeof l !== 'object' || l === null || typeof l.url !== 'string' || !l.url) throw new Error(`Invalid native link ${linkIndex} in "${c.name}".`);
+              if (!isSafeUrl(l.url)) { skippedLinks++; return acc; }
               const title = typeof l.title === 'string' && l.title.trim() ? l.title.trim() : l.url || 'Untitled Link';
-              return { id: l.id || Date.now() + Math.random(), url: l.url, title: title, favIconUrl: l.favIconUrl || null };
-            });
-            return { id: c.id || Date.now() + Math.random(), name: c.name.trim() || `Collection ${index + 1}`, isCollapsed: c.isCollapsed || false, links: validatedLinks };
+              acc.push({ id: l.id || crypto.randomUUID(), url: l.url, title, favIconUrl: l.favIconUrl || null });
+              return acc;
+            }, []);
+            return { id: c.id || crypto.randomUUID(), name: c.name.trim() || `Collection ${index + 1}`, isCollapsed: c.isCollapsed || false, links: validatedLinks };
           });
         } else {
           throw new Error('Unknown import format.');
         }
-        let replace = true;
-        if (isTobyFormat) replace = !confirm('Toby data detected. Add these collections? (Cancel will replace all)');
-        if (replace) {
-          if (confirm('Replace ALL current collections?')) {
-            collections = importedCollections;
-            alert('Import successful! Collections replaced.');
-          } else {
-            // for debugging: console.log('Import (replace) cancelled.');
-            return;
-          }
-        } else {
+        const skippedMsg = skippedLinks > 0 ? `\n(${skippedLinks} link(s) with unsafe URLs were skipped.)` : '';
+        const formatLabel = isTobyFormat ? 'Toby' : 'native';
+        const merge = confirm(`Found ${importedCollections.length} collection(s) in ${formatLabel} format.${skippedMsg}\n\nAdd to existing collections? Press Cancel to replace all.`);
+        if (merge) {
           collections = collections.concat(importedCollections);
-          alert(`Import successful! ${importedCollections.length} collections added.`);
+          alert(`Import successful! ${importedCollections.length} collection(s) added.`);
+        } else {
+          if (!confirm('Replace ALL current collections? This cannot be undone.')) return;
+          collections = importedCollections;
+          alert('Import successful! Collections replaced.');
         }
         renderCollections();
         saveData();
@@ -861,26 +878,13 @@ document.addEventListener('DOMContentLoaded', () => {
   function exportData() {
     try {
       const dataStr = JSON.stringify(collections, null, 2);
-      const blob = new Blob([dataStr], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      if (!isExtensionContext() || !browser.downloads) {
-        console.warn('Downloads API not available, using fallback.');
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'my-tab-blocks-config.json';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        return;
-      }
-      browser.downloads
-        .download({ url: url, filename: 'my-tab-blocks-config.json', saveAs: true })
-        .then((id) => URL.revokeObjectURL(url))
-        .catch((err) => {
-          console.error('Download failed:', err);
-          URL.revokeObjectURL(url);
-        });
+      const dataUrl = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
+      const a = document.createElement('a');
+      a.href = dataUrl;
+      a.download = 'my-tab-blocks-config.json';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
     } catch (error) {
       console.error('Export error:', error);
       alert('Failed to export.');
@@ -907,7 +911,10 @@ document.addEventListener('DOMContentLoaded', () => {
   if (isExtensionContext()) {
     browser.storage.onChanged.addListener((changes, area) => {
       if (area === 'local' && changes.collections) {
-        // for debugging: console.log('Storage changed externally, reloading...');
+        if (pendingSaveCount > 0) {
+          pendingSaveCount--;
+          return;
+        }
         loadData();
       }
     });

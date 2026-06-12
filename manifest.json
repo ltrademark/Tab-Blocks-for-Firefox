@@ -5,8 +5,7 @@
   "description": "A new tab replacement & open-tabs manager for Firefox.",
   "permissions": [
     "tabs",
-    "storage",
-    "downloads"
+    "storage"
   ],
   "chrome_url_overrides": {
     "newtab": "newtab.html"
@@ -15,7 +14,7 @@
     "48": "icons/icon-48.png"
   },
   "content_security_policy": {
-    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self' 'unsafe-eval';"
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self';"
   },
   "browser_specific_settings": {
     "gecko": {
