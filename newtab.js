@@ -29,7 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const refreshTabsBtn = document.getElementById('refresh-tabs-btn');
   const exportBtn = document.getElementById('export-btn');
   const importBtn = document.getElementById('import-btn');
-  const importFileInput = document.getElementById('import-file');
+  const importFileInput = document.getElementById('import-file-input');
   const collapseAllBtn = document.getElementById('collapse-all-btn');
   const searchInput = document.getElementById('search-input');
   const searchToggleContainer = document.getElementById('search-toggle-container');
@@ -99,7 +99,16 @@ document.addEventListener('DOMContentLoaded', () => {
     topRow.className = 'link-top-row';
     const linkFavicon = document.createElement('img');
     linkFavicon.className = 'link-favicon';
-    linkFavicon.src = link.favIconUrl || './icons/placeholder-favicon.png';
+    if (link.favIconUrl) {
+      linkFavicon.src = link.favIconUrl;
+    } else {
+      try {
+        const host = new URL(link.url).hostname;
+        linkFavicon.src = `https://www.google.com/s2/favicons?domain=${host}&sz=32`;
+      } catch {
+        linkFavicon.src = './icons/placeholder-favicon.png';
+      }
+    }
     linkFavicon.alt = '';
     linkFavicon.onerror = () => {
       linkFavicon.style.display = 'none';
@@ -943,81 +952,373 @@ document.addEventListener('DOMContentLoaded', () => {
       renderTabsList();
     }
   }
-  function triggerImport() {
-    importFileInput.click();
+  // --- Toast ---
+  function showToast(message, type = 'success') {
+    const toast = document.createElement('div');
+    toast.className = `toast toast--${type}`;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    const dismiss = () => {
+      toast.classList.add('toast--out');
+      toast.addEventListener('animationend', () => toast.remove(), { once: true });
+    };
+    const timer = setTimeout(dismiss, 3000);
+    toast.addEventListener('click', () => { clearTimeout(timer); dismiss(); });
   }
-  function importData(event) {
-    const file = event.target.files?.[0];
-    const inputElement = event.target;
+
+  // --- Import modal ---
+  let importState = { parsedCollections: null, format: null, skippedLinks: 0, diff: null, mode: 'merge', resolutions: {} };
+
+  function openImportModal() {
+    resetImportModal();
+    document.getElementById('import-modal').hidden = false;
+  }
+
+  function closeImportModal() {
+    document.getElementById('import-modal').hidden = true;
+    resetImportModal();
+  }
+
+  function resetImportModal() {
+    importState = { parsedCollections: null, format: null, skippedLinks: 0, diff: null, mode: 'merge', resolutions: {} };
+    showImportStep('upload');
+    importFileInput.value = '';
+    const errorEl = document.getElementById('import-error');
+    errorEl.hidden = true;
+    errorEl.textContent = '';
+  }
+
+  function showImportStep(step) {
+    ['upload', 'preview', 'conflicts'].forEach((s) => {
+      document.getElementById(`import-step-${s}`).hidden = s !== step;
+    });
+    const titles = { upload: 'Import Collections', preview: 'Import Collections', conflicts: 'Resolve Conflicts' };
+    document.getElementById('import-modal-title').textContent = titles[step];
+
+    const backBtn = document.getElementById('import-btn-back');
+    const primaryBtn = document.getElementById('import-btn-primary');
+
+    if (step === 'upload') {
+      backBtn.textContent = 'Cancel';
+      backBtn.onclick = closeImportModal;
+      primaryBtn.textContent = 'Continue';
+      primaryBtn.disabled = true;
+      primaryBtn.onclick = null;
+    } else if (step === 'preview') {
+      backBtn.textContent = 'Back';
+      backBtn.onclick = () => {
+        importFileInput.value = '';
+        document.getElementById('import-error').hidden = true;
+        importState.parsedCollections = null;
+        importState.diff = null;
+        showImportStep('upload');
+      };
+      primaryBtn.textContent = 'Continue';
+      primaryBtn.disabled = false;
+      primaryBtn.onclick = handleImportContinue;
+    } else if (step === 'conflicts') {
+      backBtn.textContent = 'Back';
+      backBtn.onclick = () => showImportStep('preview');
+      primaryBtn.textContent = 'Import';
+      primaryBtn.disabled = false;
+      primaryBtn.onclick = executeImport;
+    }
+  }
+
+  function parseImportFile(file) {
     if (!file) return;
     const maxSize = 5 * 1024 * 1024;
+    const errorEl = document.getElementById('import-error');
     if (file.size > maxSize) {
-      alert(`File too large (Max ${maxSize / 1024 / 1024}MB).`);
-      if (inputElement) inputElement.value = null;
+      errorEl.textContent = `File too large (max ${maxSize / 1024 / 1024}MB).`;
+      errorEl.hidden = false;
       return;
     }
+    errorEl.hidden = true;
     const reader = new FileReader();
     reader.onload = (e) => {
-      let importedCollections = [];
-      let isTobyFormat = false;
+      let parsed = [];
+      let format = 'native';
       let skippedLinks = 0;
       try {
         const rawData = JSON.parse(e.target.result);
         if (rawData && rawData.version === 3 && Array.isArray(rawData.lists)) {
-          isTobyFormat = true;
-          importedCollections = rawData.lists.map((list) => {
-            if (typeof list !== 'object' || list === null || typeof list.title !== 'string' || !Array.isArray(list.cards)) throw new Error(`Invalid Toby list: ${list.title || 'Untitled'}`);
-            const convertedLinks = list.cards.reduce((acc, card) => {
-              if (typeof card !== 'object' || card === null || typeof card.url !== 'string' || !card.url) throw new Error(`Invalid Toby card in list "${list.title}"`);
+          format = 'toby';
+          parsed = rawData.lists.map((list) => {
+            if (typeof list !== 'object' || list === null || typeof list.title !== 'string' || !Array.isArray(list.cards))
+              throw new Error(`Invalid Toby list: ${list.title || 'Untitled'}`);
+            const links = list.cards.reduce((acc, card) => {
+              if (typeof card !== 'object' || card === null || typeof card.url !== 'string' || !card.url)
+                throw new Error(`Invalid Toby card in list "${list.title}"`);
               if (!isSafeUrl(card.url)) { skippedLinks++; return acc; }
-              const title = typeof card.title === 'string' && card.title.trim() ? card.title.trim() : card.url || 'Untitled Link';
+              const title = typeof card.title === 'string' && card.title.trim() ? card.title.trim() : card.url;
               acc.push({ id: crypto.randomUUID(), url: card.url, title, favIconUrl: null });
               return acc;
             }, []);
-            return { id: crypto.randomUUID(), name: list.title.trim() || 'Untitled Toby Collection', isCollapsed: false, links: convertedLinks };
+            return { id: crypto.randomUUID(), name: list.title.trim() || 'Untitled Collection', isCollapsed: false, links };
           });
+        } else if (rawData && typeof rawData === 'object' && !Array.isArray(rawData) && typeof rawData.title === 'string' && Array.isArray(rawData.items)) {
+          format = 'pocket';
+          const links = rawData.items.reduce((acc, item) => {
+            if (!item || typeof item.url !== 'string' || !item.url) return acc;
+            if (!isSafeUrl(item.url)) { skippedLinks++; return acc; }
+            const title = typeof item.title === 'string' && item.title.trim() ? item.title.trim() : item.url;
+            acc.push({ id: crypto.randomUUID(), url: item.url, title, favIconUrl: null });
+            return acc;
+          }, []);
+          parsed = [{ id: crypto.randomUUID(), name: rawData.title.trim() || 'Pocket Import', isCollapsed: false, links }];
         } else if (Array.isArray(rawData)) {
-          importedCollections = rawData.map((c, index) => {
-            if (typeof c !== 'object' || c === null || typeof c.name !== 'string' || !Array.isArray(c.links)) throw new Error(`Invalid native collection ${index}.`);
-            const validatedLinks = c.links.reduce((acc, l, linkIndex) => {
-              if (typeof l !== 'object' || l === null || typeof l.url !== 'string' || !l.url) throw new Error(`Invalid native link ${linkIndex} in "${c.name}".`);
+          parsed = rawData.map((c, i) => {
+            if (typeof c !== 'object' || c === null || typeof c.name !== 'string' || !Array.isArray(c.links))
+              throw new Error(`Invalid collection at index ${i}.`);
+            const links = c.links.reduce((acc, l, li) => {
+              if (typeof l !== 'object' || l === null || typeof l.url !== 'string' || !l.url)
+                throw new Error(`Invalid link at index ${li} in "${c.name}".`);
               if (!isSafeUrl(l.url)) { skippedLinks++; return acc; }
-              const title = typeof l.title === 'string' && l.title.trim() ? l.title.trim() : l.url || 'Untitled Link';
+              const title = typeof l.title === 'string' && l.title.trim() ? l.title.trim() : l.url;
               acc.push({ id: l.id || crypto.randomUUID(), url: l.url, title, favIconUrl: l.favIconUrl || null });
               return acc;
             }, []);
-            return { id: c.id || crypto.randomUUID(), name: c.name.trim() || `Collection ${index + 1}`, isCollapsed: c.isCollapsed || false, links: validatedLinks };
+            return { id: c.id || crypto.randomUUID(), name: c.name.trim() || `Collection ${i + 1}`, isCollapsed: false, links };
           });
         } else {
-          throw new Error('Unknown import format.');
+          throw new Error('Unrecognized format — expected a Tab Blocks or Toby JSON export.');
         }
-        const skippedMsg = skippedLinks > 0 ? `\n(${skippedLinks} link(s) with unsafe URLs were skipped.)` : '';
-        const formatLabel = isTobyFormat ? 'Toby' : 'native';
-        const merge = confirm(`Found ${importedCollections.length} collection(s) in ${formatLabel} format.${skippedMsg}\n\nAdd to existing collections? Press Cancel to replace all.`);
-        if (merge) {
-          collections = collections.concat(importedCollections);
-          alert(`Import successful! ${importedCollections.length} collection(s) added.`);
-        } else {
-          if (!confirm('Replace ALL current collections? This cannot be undone.')) return;
-          collections = importedCollections;
-          alert('Import successful! Collections replaced.');
-        }
-        renderCollections();
-        saveData();
-        updateCollapseAllButtonState();
-      } catch (error) {
-        console.error('Import error:', error);
-        alert(`Import failed: ${error.message}`);
-      } finally {
-        if (inputElement) inputElement.value = null;
+        importState.parsedCollections = parsed;
+        importState.format = format;
+        importState.skippedLinks = skippedLinks;
+        importState.diff = computeImportDiff(parsed);
+        populatePreviewStep(file.name, parsed);
+        showImportStep('preview');
+      } catch (err) {
+        console.error('Import parse error:', err);
+        errorEl.textContent = err.message || 'Invalid file. Make sure you\'re importing a Tab Blocks or Toby JSON export.';
+        errorEl.hidden = false;
+        importFileInput.value = '';
       }
     };
-    reader.onerror = (e) => {
-      console.error('File read error:', e);
-      alert('Failed to read file.');
-      if (inputElement) inputElement.value = null;
+    reader.onerror = () => {
+      errorEl.textContent = 'Could not read the file.';
+      errorEl.hidden = false;
+      importFileInput.value = '';
     };
     reader.readAsText(file);
+  }
+
+  function computeImportDiff(importedCollections) {
+    const newCollections = [];
+    const autoMerge = [];
+    const conflicts = [];
+    for (const imported of importedCollections) {
+      const idMatch = collections.find((c) => c.id === imported.id);
+      const nameLower = imported.name.trim().toLowerCase();
+      const nameMatch = collections.find((c) => c.name.trim().toLowerCase() === nameLower);
+      if (idMatch) {
+        if (idMatch.name.trim().toLowerCase() === nameLower) {
+          const existingUrls = new Set(idMatch.links.map((l) => l.url));
+          const newLinks = imported.links.filter((l) => !existingUrls.has(l.url)).length;
+          const dupes = imported.links.length - newLinks;
+          autoMerge.push({ imported, existing: idMatch, newLinks, dupes });
+        } else {
+          conflicts.push({ type: 'id-rename', imported, existing: idMatch });
+        }
+      } else if (nameMatch) {
+        conflicts.push({ type: 'name-match', imported, existing: nameMatch });
+      } else {
+        newCollections.push(imported);
+      }
+    }
+    return { newCollections, autoMerge, conflicts };
+  }
+
+  function populatePreviewStep(fileName, parsedCollections) {
+    const totalLinks = parsedCollections.reduce((sum, c) => sum + c.links.length, 0);
+    const { newCollections, autoMerge, conflicts } = importState.diff;
+    const existingTotal = collections.reduce((sum, c) => sum + c.links.length, 0);
+
+    const fileInfoEl = document.getElementById('import-file-info');
+    fileInfoEl.innerHTML = '';
+    const nameEl = document.createElement('strong');
+    nameEl.textContent = fileName;
+    const statsEl = document.createElement('span');
+    statsEl.textContent = `${parsedCollections.length} collection${parsedCollections.length !== 1 ? 's' : ''}, ${totalLinks} link${totalLinks !== 1 ? 's' : ''}`;
+    const formatEl = document.createElement('span');
+    formatEl.className = 'import-file-format';
+    const formatLabels = { toby: 'Toby format', pocket: 'Pocket format', native: 'Tab Blocks format' };
+    formatEl.textContent = formatLabels[importState.format] || 'Tab Blocks format';
+    if (importState.skippedLinks > 0) {
+      const skipEl = document.createElement('span');
+      skipEl.className = 'import-file-format';
+      skipEl.textContent = `${importState.skippedLinks} link${importState.skippedLinks !== 1 ? 's' : ''} with unsafe URLs will be skipped`;
+      fileInfoEl.appendChild(skipEl);
+    }
+    fileInfoEl.appendChild(nameEl);
+    fileInfoEl.appendChild(statsEl);
+    fileInfoEl.appendChild(formatEl);
+
+    const mergeParts = [];
+    if (newCollections.length) mergeParts.push(`${newCollections.length} new`);
+    if (autoMerge.length) mergeParts.push(`${autoMerge.length} will merge`);
+    if (conflicts.length) mergeParts.push(`${conflicts.length} conflict${conflicts.length !== 1 ? 's' : ''} to resolve`);
+    document.getElementById('import-merge-desc').textContent = mergeParts.length ? mergeParts.join(' · ') : 'Nothing new to add';
+
+    document.getElementById('import-override-desc').textContent =
+      `Replaces your current ${collections.length} collection${collections.length !== 1 ? 's' : ''} and ${existingTotal} link${existingTotal !== 1 ? 's' : ''}`;
+
+    document.querySelector('input[name="import-mode"][value="merge"]').checked = true;
+    importState.mode = 'merge';
+  }
+
+  function handleImportContinue() {
+    const selected = document.querySelector('input[name="import-mode"]:checked');
+    importState.mode = selected ? selected.value : 'merge';
+    if (importState.mode === 'override') {
+      executeImport();
+      return;
+    }
+    const { conflicts } = importState.diff;
+    if (!conflicts.length) {
+      executeImport();
+      return;
+    }
+    conflicts.forEach((c) => { importState.resolutions[c.imported.id] = 'merge'; });
+    buildConflictUI(conflicts);
+    showImportStep('conflicts');
+  }
+
+  function buildConflictUI(conflicts) {
+    const list = document.getElementById('import-conflicts-list');
+    list.innerHTML = '';
+    conflicts.forEach((conflict) => {
+      const item = document.createElement('div');
+      item.className = 'conflict-item';
+
+      const header = document.createElement('div');
+      header.className = 'conflict-item-header';
+      const nameEl = document.createElement('span');
+      nameEl.className = 'conflict-name';
+      const badge = document.createElement('span');
+      badge.className = 'conflict-badge';
+      const optionsDiv = document.createElement('div');
+      optionsDiv.className = 'conflict-options';
+
+      const existingUrls = new Set(conflict.existing.links.map((l) => l.url));
+      const newLinkCount = conflict.imported.links.filter((l) => !existingUrls.has(l.url)).length;
+      const radioName = `conflict-${conflict.imported.id}`;
+
+      if (conflict.type === 'name-match') {
+        nameEl.textContent = `"${conflict.imported.name}"`;
+        badge.classList.add('conflict-badge--name-match');
+        badge.textContent = 'Same name, different source';
+
+        const mergeLabel = buildConflictOption(radioName, 'merge', true,
+          `Merge into existing "${conflict.existing.name}"`,
+          `adds ${newLinkCount} new link${newLinkCount !== 1 ? 's' : ''}, skips duplicates`);
+        const separateLabel = buildConflictOption(radioName, 'separate', false,
+          'Keep separate',
+          `creates a second "${conflict.imported.name}"`);
+        optionsDiv.appendChild(mergeLabel);
+        optionsDiv.appendChild(separateLabel);
+      } else {
+        nameEl.textContent = `"${conflict.existing.name}" → "${conflict.imported.name}"`;
+        badge.classList.add('conflict-badge--id-rename');
+        badge.textContent = 'Renamed';
+
+        const mergeLabel = buildConflictOption(radioName, 'merge', true,
+          `Merge into "${conflict.existing.name}"`,
+          `keeps existing name, adds ${newLinkCount} new link${newLinkCount !== 1 ? 's' : ''}`);
+        const bothLabel = buildConflictOption(radioName, 'both', false,
+          'Keep both',
+          `creates a separate "${conflict.imported.name}"`);
+        optionsDiv.appendChild(mergeLabel);
+        optionsDiv.appendChild(bothLabel);
+      }
+
+      optionsDiv.querySelectorAll('input[type="radio"]').forEach((radio) => {
+        radio.addEventListener('change', (e) => { importState.resolutions[conflict.imported.id] = e.target.value; });
+      });
+
+      header.appendChild(nameEl);
+      header.appendChild(badge);
+      item.appendChild(header);
+      item.appendChild(optionsDiv);
+      list.appendChild(item);
+    });
+  }
+
+  function buildConflictOption(radioName, value, checked, labelText, detailText) {
+    const label = document.createElement('label');
+    label.className = 'conflict-option';
+    const radio = document.createElement('input');
+    radio.type = 'radio';
+    radio.name = radioName;
+    radio.value = value;
+    radio.checked = checked;
+    const textSpan = document.createElement('span');
+    textSpan.textContent = labelText + ' ';
+    const detailSpan = document.createElement('span');
+    detailSpan.className = 'conflict-option-detail';
+    detailSpan.textContent = `(${detailText})`;
+    textSpan.appendChild(detailSpan);
+    label.appendChild(radio);
+    label.appendChild(textSpan);
+    return label;
+  }
+
+  function mergeLinksInto(targetCollection, importedLinks) {
+    const existingUrls = new Set(targetCollection.links.map((l) => l.url));
+    for (const link of importedLinks) {
+      if (!existingUrls.has(link.url)) {
+        targetCollection.links.push({ ...link });
+        existingUrls.add(link.url);
+      }
+    }
+  }
+
+  function executeImport() {
+    let toastMsg = '';
+    if (importState.mode === 'override') {
+      collections = importState.parsedCollections.map((c) => ({
+        ...c, isCollapsed: false, links: c.links.map((l) => ({ ...l })),
+      }));
+      const total = collections.reduce((s, c) => s + c.links.length, 0);
+      toastMsg = `Replaced with ${collections.length} collection${collections.length !== 1 ? 's' : ''} and ${total} link${total !== 1 ? 's' : ''}`;
+    } else {
+      const result = collections.map((c) => ({ ...c, links: c.links.map((l) => ({ ...l })) }));
+      const { newCollections, autoMerge, conflicts } = importState.diff;
+      let addedLinks = 0;
+
+      for (const { imported, existing } of autoMerge) {
+        const target = result.find((c) => c.id === existing.id);
+        if (target) { const before = target.links.length; mergeLinksInto(target, imported.links); addedLinks += target.links.length - before; target.isCollapsed = false; }
+      }
+
+      for (const conflict of conflicts) {
+        const resolution = importState.resolutions[conflict.imported.id] || 'merge';
+        if (resolution === 'merge') {
+          const target = result.find((c) => c.id === conflict.existing.id);
+          if (target) { const before = target.links.length; mergeLinksInto(target, conflict.imported.links); addedLinks += target.links.length - before; target.isCollapsed = false; }
+        } else {
+          result.push({ ...conflict.imported, id: crypto.randomUUID(), isCollapsed: false, links: conflict.imported.links.map((l) => ({ ...l })) });
+        }
+      }
+
+      for (const col of newCollections) {
+        result.push({ ...col, isCollapsed: false, links: col.links.map((l) => ({ ...l })) });
+      }
+      collections = result;
+
+      const parts = [];
+      if (newCollections.length) parts.push(`${newCollections.length} new collection${newCollections.length !== 1 ? 's' : ''}`);
+      if (addedLinks) parts.push(`${addedLinks} link${addedLinks !== 1 ? 's' : ''} added`);
+      toastMsg = parts.length ? `Import complete — ${parts.join(', ')}` : 'Import complete — nothing new to add';
+    }
+
+    renderCollections();
+    saveData();
+    updateCollapseAllButtonState();
+    closeImportModal();
+    showToast(toastMsg);
   }
   function exportData() {
     try {
@@ -1153,8 +1454,14 @@ document.addEventListener('DOMContentLoaded', () => {
   addCollectionBtn.addEventListener('click', addCollection);
   refreshTabsBtn.addEventListener('click', fetchOpenTabs);
   exportBtn.addEventListener('click', exportData);
-  importBtn.addEventListener('click', triggerImport);
-  importFileInput.addEventListener('change', importData);
+  importBtn.addEventListener('click', openImportModal);
+  document.getElementById('import-modal-backdrop').addEventListener('click', closeImportModal);
+  document.getElementById('import-modal-close').addEventListener('click', closeImportModal);
+  importFileInput.addEventListener('change', (e) => { parseImportFile(e.target.files[0]); });
+  const importDropzone = document.getElementById('import-dropzone');
+  importDropzone.addEventListener('dragover', (e) => { e.preventDefault(); importDropzone.classList.add('drag-over'); });
+  importDropzone.addEventListener('dragleave', () => importDropzone.classList.remove('drag-over'));
+  importDropzone.addEventListener('drop', (e) => { e.preventDefault(); importDropzone.classList.remove('drag-over'); parseImportFile(e.dataTransfer.files[0]); });
   collectionsContainer.addEventListener('click', handleCollectionsClick);
   collectionsContainer.addEventListener('change', handleCollectionsInput);
   collectionsContainer.addEventListener('dragover', handleCollectionDragOver);
