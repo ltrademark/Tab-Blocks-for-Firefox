@@ -4,6 +4,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let openTabs = [];
   let draggedTab = null;
   let draggedLinkInfo = null;
+  let draggedSplitPair = null;
   let draggedCollectionId = null;
   let dragOverCollectionId = null;
   let reorderTargetInfo = null;
@@ -34,6 +35,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const deleteIconSVG = `<svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: auto;"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`;
   const dragHandleIconSVG = `<div class="f-icon f-fill"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M13 4C13 4.55228 12.5523 5 12 5C11.4477 5 11 4.55228 11 4C11 3.44772 11.4477 3 12 3C12.5523 3 13 3.44772 13 4Z" fill="currentColor"/><path d="M13 9C13 9.55228 12.5523 10 12 10C11.4477 10 11 9.55228 11 9C11 8.44772 11.4477 8 12 8C12.5523 8 13 8.44772 13 9Z" fill="currentColor"/><path d="M13 14C13 14.5523 12.5523 15 12 15C11.4477 15 11 14.5523 11 14C11 13.4477 11.4477 13 12 13C12.5523 13 13 13.4477 13 14Z" fill="currentColor"/><path d="M13 19C13 19.5523 12.5523 20 12 20C11.4477 20 11 19.5523 11 19C11 18.4477 11.4477 18 12 18C12.5523 18 13 18.4477 13 19Z" fill="currentColor"/><path d="M8 4C8 4.55228 7.55228 5 7 5C6.44772 5 6 4.55228 6 4C6 3.44772 6.44772 3 7 3C7.55228 3 8 3.44772 8 4Z" fill="currentColor"/><path d="M8 9C8 9.55228 7.55228 10 7 10C6.44772 10 6 9.55228 6 9C6 8.44772 6.44772 8 7 8C7.55228 8 8 8.44772 8 9Z" fill="currentColor"/><path d="M8 14C8 14.5523 7.55228 15 7 15C6.44772 15 6 14.5523 6 14C6 13.4477 6.44772 13 7 13C7.55228 13 8 13.4477 8 14Z" fill="currentColor"/><path d="M8 19C8 19.5523 7.55228 20 7 20C6.44772 20 6 19.5523 6 19C6 18.4477 6.44772 18 7 18C7.55228 18 8 18.4477 8 19Z" fill="currentColor"/><path d="M18 4C18 4.55228 17.5523 5 17 5C16.4477 5 16 4.55228 16 4C16 3.44772 16.4477 3 17 3C17.5523 3 18 3.44772 18 4Z" fill="currentColor"/><path d="M18 9C18 9.55228 17.5523 10 17 10C16.4477 10 16 9.55228 16 9C16 8.44772 16.4477 8 17 8C17.5523 8 18 8.44772 18 9Z" fill="currentColor"/><path d="M18 14C18 14.5523 17.5523 15 17 15C16.4477 15 16 14.5523 16 14C16 13.4477 16.4477 13 17 13C17.5523 13 18 13.4477 18 14Z" fill="currentColor"/><path d="M18 19C18 19.5523 17.5523 20 17 20C16.4477 20 16 19.5523 16 19C16 18.4477 16.4477 18 17 18C17.5523 18 18 18.4477 18 19Z" fill="currentColor"/></svg></div>`;
   const editIconSVG = `<svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>`;
+  const splitViewIconSVG = `<svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="1" width="5" height="12" rx="1"/><rect x="8" y="1" width="5" height="12" rx="1"/></svg>`;
 
   // --- Utility Functions ---
   const isExtensionContext = () => typeof browser !== 'undefined' && browser.runtime?.id;
@@ -228,7 +230,52 @@ document.addEventListener('DOMContentLoaded', () => {
     collectionsContainer.scrollTop = scrollTop;
   }
 
-  /** Renders the list of open tabs, applying search filter */
+  /** Creates a single tab row element */
+  function createTabElement(tab) {
+    const tabDiv = document.createElement('div');
+    tabDiv.className = 'tab-item';
+    tabDiv.draggable = true;
+    tabDiv.dataset.tabId = tab.id;
+    tabDiv.dataset.tabUrl = tab.url;
+    tabDiv.dataset.tabTitle = tab.title;
+    if (tab.favIconUrl) tabDiv.dataset.tabFavicon = tab.favIconUrl;
+    tabDiv.title = tab.title || tab.url;
+    if (tab.containerColor) {
+      tabDiv.style.setProperty('--container-color', tab.containerColor);
+      tabDiv.classList.add('has-container');
+      tabDiv.title = `[${tab.containerName}] ${tab.title || tab.url}`;
+    }
+    const favicon = document.createElement('img');
+    favicon.className = 'favicon';
+    favicon.src = tab.favIconUrl || './icons/placeholder-favicon.png';
+    favicon.alt = '';
+    favicon.onerror = () => { favicon.style.display = 'none'; };
+    const titleSpan = document.createElement('span');
+    titleSpan.className = 'tab-title';
+    titleSpan.textContent = tab.title || tab.url;
+    tabDiv.appendChild(favicon);
+    tabDiv.appendChild(titleSpan);
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'close-tab-btn';
+    closeBtn.title = 'Close tab';
+    closeBtn.textContent = '×';
+    closeBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      if (isExtensionContext() && browser.tabs) {
+        try {
+          await browser.tabs.remove(tab.id);
+          fetchOpenTabs();
+        } catch (err) {
+          console.error('Failed to close tab:', err);
+        }
+      }
+    });
+    tabDiv.appendChild(closeBtn);
+    tabDiv.addEventListener('dragstart', handleDragStart);
+    return tabDiv;
+  }
+
+  /** Renders the list of open tabs, grouping split pairs with a draggable wire handle */
   function renderTabsList() {
     tabsListContainer.innerHTML = '';
 
@@ -243,54 +290,63 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
+    const splitGroupCounts = {};
     filteredTabs.forEach((tab) => {
-      const tabDiv = document.createElement('div');
-      tabDiv.className = 'tab-item';
-      tabDiv.draggable = true;
-      tabDiv.dataset.tabId = tab.id;
-      tabDiv.dataset.tabUrl = tab.url;
-      tabDiv.dataset.tabTitle = tab.title;
-      if (tab.favIconUrl) tabDiv.dataset.tabFavicon = tab.favIconUrl;
-      tabDiv.title = tab.title || tab.url;
-      if (tab.containerColor) {
-        tabDiv.style.setProperty('--container-color', tab.containerColor);
-        tabDiv.classList.add('has-container');
-        tabDiv.title = `[${tab.containerName}] ${tab.title || tab.url}`;
-      }
-      const favicon = document.createElement('img');
-      favicon.className = 'favicon';
-      favicon.src = tab.favIconUrl || './icons/placeholder-favicon.png';
-      favicon.alt = '';
-      favicon.onerror = () => {
-        favicon.style.display = 'none';
-      };
-      const titleSpan = document.createElement('span');
-      titleSpan.className = 'tab-title';
-      titleSpan.textContent = tab.title || tab.url;
-      tabDiv.appendChild(favicon);
-      tabDiv.appendChild(titleSpan);
-      const closeBtn = document.createElement('button');
-      closeBtn.className = 'close-tab-btn';
-      closeBtn.title = 'Close tab';
-      closeBtn.textContent = '×';
-      closeBtn.addEventListener('click', async (e) => {
-        e.stopPropagation();
-        if (isExtensionContext() && browser.tabs) {
-          try {
-            await browser.tabs.remove(tab.id);
-            fetchOpenTabs();
-          } catch (err) {
-            console.error('Failed to close tab:', err);
-          }
+      if (tab.splitViewId != null && tab.splitViewId !== -1)
+        splitGroupCounts[tab.splitViewId] = (splitGroupCounts[tab.splitViewId] || 0) + 1;
+    });
+
+    const seen = new Set();
+    filteredTabs.forEach((tab) => {
+      if (seen.has(tab.id)) return;
+      seen.add(tab.id);
+
+      const isSplit = tab.splitViewId != null && tab.splitViewId !== -1 && (splitGroupCounts[tab.splitViewId] || 0) > 1;
+      if (isSplit) {
+        const partner = filteredTabs.find((t) => !seen.has(t.id) && t.splitViewId === tab.splitViewId);
+        if (partner) {
+          seen.add(partner.id);
+          const pairDiv = document.createElement('div');
+          pairDiv.className = 'split-pair';
+          const wire = document.createElement('div');
+          wire.className = 'split-pair-wire';
+          wire.draggable = true;
+          wire.title = 'Drag to add both tabs to a collection';
+          const wireTop = document.createElement('div');
+          wireTop.className = 'wire-line';
+          const wireIcon = document.createElement('div');
+          wireIcon.className = 'wire-icon';
+          wireIcon.innerHTML = splitViewIconSVG;
+          const wireBottom = document.createElement('div');
+          wireBottom.className = 'wire-line';
+          wire.appendChild(wireTop);
+          wire.appendChild(wireIcon);
+          wire.appendChild(wireBottom);
+          wire.addEventListener('dragstart', (e) => handleSplitPairDragStart(e, [tab, partner]));
+          wire.addEventListener('dragend', handleSplitPairDragEnd);
+          const tabsCol = document.createElement('div');
+          tabsCol.className = 'split-pair-tabs';
+          tabsCol.appendChild(createTabElement(tab));
+          tabsCol.appendChild(createTabElement(partner));
+          pairDiv.appendChild(wire);
+          pairDiv.appendChild(tabsCol);
+          tabsListContainer.appendChild(pairDiv);
+          return;
         }
-      });
-      tabDiv.appendChild(closeBtn);
-      tabDiv.addEventListener('dragstart', handleDragStart);
-      tabsListContainer.appendChild(tabDiv);
+      }
+      tabsListContainer.appendChild(createTabElement(tab));
     });
   }
 
   // --- Event Handlers ---
+  function handleSplitPairDragStart(event, tabs) {
+    draggedSplitPair = tabs.map((t) => ({ url: t.url, title: t.title, favIconUrl: t.favIconUrl }));
+    event.dataTransfer.setData('application/split-pair+json', JSON.stringify(draggedSplitPair));
+    event.dataTransfer.effectAllowed = 'copy';
+  }
+  function handleSplitPairDragEnd() {
+    draggedSplitPair = null;
+  }
   function handleDragStart(event) {
     const tabItem = event.target.closest('.tab-item');
     if (!tabItem) return;
@@ -374,8 +430,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const linkBlockData = event.dataTransfer.getData('application/link-block+json');
     const newTabData = event.dataTransfer.getData('application/json');
+    const splitPairData = event.dataTransfer.getData('application/split-pair+json');
 
-    if (linkBlockData && draggedLinkInfo) {
+    if (splitPairData && draggedSplitPair) {
+      let added = 0;
+      for (const tabData of draggedSplitPair) {
+        if (!targetCollection.links.some((l) => l.url === tabData.url)) {
+          targetCollection.links.push({ id: crypto.randomUUID(), url: tabData.url, title: tabData.title || tabData.url, favIconUrl: tabData.favIconUrl || null });
+          added++;
+        }
+      }
+      if (added > 0) { renderCollections(); saveData(); }
+    } else if (linkBlockData && draggedLinkInfo) {
       // --- Dropped an existing Link Block ---
       const { linkId, sourceCollectionId, linkData } = draggedLinkInfo;
       if (sourceCollectionId === targetCollectionId) {
@@ -437,6 +503,7 @@ document.addEventListener('DOMContentLoaded', () => {
     clearLinkReorderIndicators();
     draggedTab = null;
     draggedLinkInfo = null;
+    draggedSplitPair = null;
     dragOverCollectionId = null;
     reorderLinkTargetInfo = null;
   }
@@ -574,7 +641,11 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     event.stopPropagation();
-    if (action === 'delete-link' && linkBlock && collectionId) deleteLink(collectionId, linkBlock.dataset.linkId);
+    if (action === 'delete-link' && collectionId) {
+      const deleteBtn = target.closest('[data-action="delete-link"]');
+      const linkId = deleteBtn?.dataset.linkId || linkBlock?.dataset.linkId;
+      if (linkId) deleteLink(collectionId, linkId);
+    }
     else if (action === 'edit-link' && linkBlock && collectionId) startEditingLink(collectionId, linkBlock.dataset.linkId, linkBlock);
     else if (action === 'delete-collection' && collectionId) deleteCollectionById(collectionId);
     else if (action === 'toggle-collapse' && collectionId) toggleCollectionCollapse(collectionId);
