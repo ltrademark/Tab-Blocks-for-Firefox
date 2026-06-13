@@ -793,3 +793,210 @@ a {
     fill: currentColor;
   }
 }
+
+/* ============================================================
+   Mobile styles  (pointer: coarse = touch device)
+   ============================================================ */
+
+@media (pointer: coarse) {
+  body {
+    overflow: auto;
+  }
+
+  .app-container {
+    flex-direction: column;
+    height: auto;
+    min-height: 100vh;
+  }
+
+  /* Sidebar hidden — open tabs accessed via bottom sheet */
+  .sidebar {
+    display: none;
+  }
+
+  /* Search toggle unnecessary on mobile (no persistent tab list) */
+  #search-toggle-container {
+    display: none;
+  }
+
+  /* Bigger touch targets */
+  .btn {
+    min-height: 44px;
+    padding: var(--padding-small) var(--padding);
+  }
+
+  .tab-item {
+    min-height: 48px;
+    cursor: pointer;
+  }
+
+  /* Link blocks: no grab cursor, navigable by tap */
+  .link-block {
+    cursor: pointer;
+  }
+
+  /* Collection title is read-only on mobile (edit via modal) */
+  .collection-title-input {
+    pointer-events: none;
+    background: transparent;
+    border-color: transparent;
+    cursor: default;
+  }
+
+  /* Link edit/delete buttons hidden on mobile — long-press handles those actions */
+  .edit-link-btn,
+  .delete-link-btn {
+    display: none;
+  }
+}
+
+/* --- "+" add-link block (mobile only, always shown via JS) --- */
+.link-block--add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px dashed var(--border);
+  background: transparent;
+  cursor: pointer;
+  color: var(--foreground-muted);
+  transition: border-color var(--near) var(--curve), color var(--near) var(--curve),
+    background-color var(--near) var(--curve);
+
+  &:hover,
+  &:active {
+    border-color: var(--accent);
+    color: var(--accent);
+    background-color: var(--accent-offset);
+  }
+
+  svg {
+    width: 28px;
+    height: 28px;
+    stroke-width: 1.5;
+  }
+}
+
+/* --- Bottom sheet --- */
+#mobile-tab-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+
+  &[hidden] {
+    display: none;
+  }
+}
+
+.sheet-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.sheet-panel {
+  position: relative;
+  background: var(--background);
+  border-radius: var(--radius) var(--radius) 0 0;
+  border: 1px solid var(--border);
+  border-bottom: none;
+  max-height: 75vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.sheet-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--padding);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  background: var(--background);
+}
+
+.sheet-title {
+  font-weight: 700;
+  font-size: 0.9em;
+}
+
+#sheet-tabs-list {
+  overflow-y: auto;
+  flex: 1;
+  padding: var(--padding-small);
+  display: flex;
+  flex-direction: column;
+  gap: var(--padding-small);
+
+  .tab-item {
+    cursor: pointer;
+  }
+}
+
+/* --- Modals --- */
+.mobile-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--padding);
+
+  &[hidden] {
+    display: none;
+  }
+}
+
+.modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.modal-panel {
+  position: relative;
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-small);
+  padding: var(--padding);
+  width: 100%;
+  max-width: 380px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--padding-small);
+}
+
+.modal-title {
+  font-size: 1em;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.modal-input {
+  width: 100%;
+  padding: var(--padding-small) var(--padding);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-small);
+  background: var(--background-offset);
+  color: var(--foreground);
+  font: var(--font-config);
+  font-size: 0.9em;
+  transition: border-color var(--near) var(--curve), box-shadow var(--near) var(--curve);
+
+  &:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent-offset);
+  }
+}
+
+.modal-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--padding-small);
+  margin-top: 4px;
+}

@@ -102,6 +102,50 @@
       </div>
     </div>
   </div>
+  <!-- Mobile: Bottom sheet for picking an open tab to add -->
+  <div id="mobile-tab-sheet" hidden>
+    <div class="sheet-backdrop" id="sheet-backdrop"></div>
+    <div class="sheet-panel">
+      <div class="sheet-header">
+        <span class="sheet-title">Add Tab to Collection</span>
+        <button class="btn btn-default btn-sm btn-sq" id="sheet-close" title="Close">
+          <div class="f-icon">
+            <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </div>
+        </button>
+      </div>
+      <div id="sheet-tabs-list"></div>
+    </div>
+  </div>
+
+  <!-- Mobile: Collection edit / delete modal -->
+  <div id="mobile-collection-modal" class="mobile-modal" hidden>
+    <div class="modal-backdrop" id="collection-modal-backdrop"></div>
+    <div class="modal-panel">
+      <h3 class="modal-title">Edit Collection</h3>
+      <input type="text" id="modal-collection-title" class="modal-input" placeholder="Collection Name">
+      <div class="modal-actions">
+        <button id="modal-collection-save" class="btn btn-primary">Save</button>
+        <button id="modal-collection-delete" class="btn btn-danger">Delete Collection</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mobile: Link edit / delete modal -->
+  <div id="mobile-link-modal" class="mobile-modal" hidden>
+    <div class="modal-backdrop" id="link-modal-backdrop"></div>
+    <div class="modal-panel">
+      <h3 class="modal-title">Edit Link</h3>
+      <input type="text" id="modal-link-title" class="modal-input" placeholder="Link Title">
+      <div class="modal-actions">
+        <button id="modal-link-save" class="btn btn-primary">Save Title</button>
+        <button id="modal-link-delete" class="btn btn-danger">Delete Link</button>
+      </div>
+    </div>
+  </div>
+
   <script src="./newtab.js" defer></script>
 </body>
 

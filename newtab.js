@@ -1,4 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
+  // --- Platform ---
+  const isMobile = window.matchMedia('(pointer: coarse)').matches;
+
   // --- State ---
   let collections = [];
   let openTabs = [];
@@ -15,6 +18,9 @@ document.addEventListener('DOMContentLoaded', () => {
   let pendingSaveCount = 0;
   let searchTerm = '';
   let searchTarget = 'collections';
+  let mobileTargetCollectionId = null;
+  let mobileEditingCollectionId = null;
+  let mobileEditingLinkId = null;
 
   // --- DOM References ---
   const collectionsContainer = document.getElementById('collections-container');
@@ -27,6 +33,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const collapseAllBtn = document.getElementById('collapse-all-btn');
   const searchInput = document.getElementById('search-input');
   const searchToggleContainer = document.getElementById('search-toggle-container');
+  const mobileTabSheet = document.getElementById('mobile-tab-sheet');
+  const mobileCollectionModal = document.getElementById('mobile-collection-modal');
+  const mobileLinkModal = document.getElementById('mobile-link-modal');
 
   // --- SVGs / Icons ---
   const collapseIconSVG = `<svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>`;
@@ -35,6 +44,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const deleteIconSVG = `<svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: auto;"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`;
   const dragHandleIconSVG = `<div class="f-icon f-fill"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M13 4C13 4.55228 12.5523 5 12 5C11.4477 5 11 4.55228 11 4C11 3.44772 11.4477 3 12 3C12.5523 3 13 3.44772 13 4Z" fill="currentColor"/><path d="M13 9C13 9.55228 12.5523 10 12 10C11.4477 10 11 9.55228 11 9C11 8.44772 11.4477 8 12 8C12.5523 8 13 8.44772 13 9Z" fill="currentColor"/><path d="M13 14C13 14.5523 12.5523 15 12 15C11.4477 15 11 14.5523 11 14C11 13.4477 11.4477 13 12 13C12.5523 13 13 13.4477 13 14Z" fill="currentColor"/><path d="M13 19C13 19.5523 12.5523 20 12 20C11.4477 20 11 19.5523 11 19C11 18.4477 11.4477 18 12 18C12.5523 18 13 18.4477 13 19Z" fill="currentColor"/><path d="M8 4C8 4.55228 7.55228 5 7 5C6.44772 5 6 4.55228 6 4C6 3.44772 6.44772 3 7 3C7.55228 3 8 3.44772 8 4Z" fill="currentColor"/><path d="M8 9C8 9.55228 7.55228 10 7 10C6.44772 10 6 9.55228 6 9C6 8.44772 6.44772 8 7 8C7.55228 8 8 8.44772 8 9Z" fill="currentColor"/><path d="M8 14C8 14.5523 7.55228 15 7 15C6.44772 15 6 14.5523 6 14C6 13.4477 6.44772 13 7 13C7.55228 13 8 13.4477 8 14Z" fill="currentColor"/><path d="M8 19C8 19.5523 7.55228 20 7 20C6.44772 20 6 19.5523 6 19C6 18.4477 6.44772 18 7 18C7.55228 18 8 18.4477 8 19Z" fill="currentColor"/><path d="M18 4C18 4.55228 17.5523 5 17 5C16.4477 5 16 4.55228 16 4C16 3.44772 16.4477 3 17 3C17.5523 3 18 3.44772 18 4Z" fill="currentColor"/><path d="M18 9C18 9.55228 17.5523 10 17 10C16.4477 10 16 9.55228 16 9C16 8.44772 16.4477 8 17 8C17.5523 8 18 8.44772 18 9Z" fill="currentColor"/><path d="M18 14C18 14.5523 17.5523 15 17 15C16.4477 15 16 14.5523 16 14C16 13.4477 16.4477 13 17 13C17.5523 13 18 13.4477 18 14Z" fill="currentColor"/><path d="M18 19C18 19.5523 17.5523 20 17 20C16.4477 20 16 19.5523 16 19C16 18.4477 16.4477 18 17 18C17.5523 18 18 18.4477 18 19Z" fill="currentColor"/></svg></div>`;
   const editIconSVG = `<svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>`;
+  const plusIconSVG = `<svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`;
   const splitViewIconSVG = `<svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="1" width="5" height="12" rx="1"/><rect x="8" y="1" width="5" height="12" rx="1"/></svg>`;
 
   // --- Utility Functions ---
@@ -76,10 +86,13 @@ document.addEventListener('DOMContentLoaded', () => {
     linkBlock.dataset.collectionId = collectionId;
     linkBlock.dataset.linkId = link.id;
     linkBlock.title = `Go to: ${link.url}`;
-    linkBlock.draggable = true;
-
-    linkBlock.addEventListener('dragstart', handleLinkBlockDragStart);
-    linkBlock.addEventListener('dragend', handleLinkBlockDragEnd);
+    if (!isMobile) {
+      linkBlock.draggable = true;
+      linkBlock.addEventListener('dragstart', handleLinkBlockDragStart);
+      linkBlock.addEventListener('dragend', handleLinkBlockDragEnd);
+    } else {
+      addLongPressHandler(linkBlock, () => openLinkModal(collectionId, link.id));
+    }
 
     // --- Create Top Row ---
     const topRow = document.createElement('div');
@@ -158,7 +171,7 @@ document.addEventListener('DOMContentLoaded', () => {
     titleInput.className = 'collection-title-input';
     titleInput.value = collection.name;
     titleInput.placeholder = 'Collection Name';
-    titleInput.dataset.action = 'edit-collection-title';
+    if (!isMobile) titleInput.dataset.action = 'edit-collection-title';
     const actionsDiv = document.createElement('div');
     actionsDiv.className = 'collection-actions';
     const collapseBtn = document.createElement('button');
@@ -166,12 +179,21 @@ document.addEventListener('DOMContentLoaded', () => {
     collapseBtn.title = collection.isCollapsed ? 'Expand Collection' : 'Collapse Collection';
     collapseBtn.dataset.action = 'toggle-collapse';
     setElementContent(collapseBtn, `<div class="f-icon">${collapseIconSVG}</div>`, true);
-    const deleteCollectionBtn = document.createElement('button');
-    deleteCollectionBtn.classList.add('delete-collection-btn', 'btn', 'btn-danger', 'btn-sm', 'btn-sq');
-    deleteCollectionBtn.title = 'Delete Collection';
-    setElementContent(deleteCollectionBtn, `<div class="f-icon">${deleteIconSVG}</div>`, true);
-    deleteCollectionBtn.dataset.action = 'delete-collection';
-    actionsDiv.appendChild(deleteCollectionBtn);
+    if (isMobile) {
+      const editCollectionBtn = document.createElement('button');
+      editCollectionBtn.classList.add('btn', 'btn-default', 'btn-sm', 'btn-sq');
+      editCollectionBtn.title = 'Edit Collection';
+      setElementContent(editCollectionBtn, `<div class="f-icon">${editIconSVG}</div>`, true);
+      editCollectionBtn.addEventListener('click', () => openCollectionModal(collection.id));
+      actionsDiv.appendChild(editCollectionBtn);
+    } else {
+      const deleteCollectionBtn = document.createElement('button');
+      deleteCollectionBtn.classList.add('delete-collection-btn', 'btn', 'btn-danger', 'btn-sm', 'btn-sq');
+      deleteCollectionBtn.title = 'Delete Collection';
+      setElementContent(deleteCollectionBtn, `<div class="f-icon">${deleteIconSVG}</div>`, true);
+      deleteCollectionBtn.dataset.action = 'delete-collection';
+      actionsDiv.appendChild(deleteCollectionBtn);
+    }
     actionsDiv.appendChild(collapseBtn);
     header.appendChild(dragHandle);
     header.appendChild(titleInput);
@@ -184,18 +206,24 @@ document.addEventListener('DOMContentLoaded', () => {
       filteredLinks.forEach((link) => {
         linksGrid.appendChild(createLinkElement(link, collection.id));
       });
-    } else {
+    } else if (!isMobile) {
       const emptyMsg = document.createElement('div');
       emptyMsg.className = 'empty-collection-message';
       setElementContent(emptyMsg, searchTerm ? 'No matching links found.' : 'Drag tabs here to add links.');
       linksGrid.appendChild(emptyMsg);
     }
 
+    if (isMobile) {
+      linksGrid.appendChild(createAddLinkBlock(collection.id));
+    }
+
     collectionDiv.appendChild(header);
     collectionDiv.appendChild(linksGrid);
-    collectionDiv.addEventListener('dragover', handleLinkDragOver);
-    collectionDiv.addEventListener('dragleave', handleLinkDragLeave);
-    collectionDiv.addEventListener('drop', handleDrop);
+    if (!isMobile) {
+      collectionDiv.addEventListener('dragover', handleLinkDragOver);
+      collectionDiv.addEventListener('dragleave', handleLinkDragLeave);
+      collectionDiv.addEventListener('drop', handleDrop);
+    }
     return collectionDiv;
   }
 
@@ -997,7 +1025,8 @@ document.addEventListener('DOMContentLoaded', () => {
       const dataUrl = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
       const a = document.createElement('a');
       a.href = dataUrl;
-      a.download = 'my-tab-blocks-config.json';
+      const date = new Date().toISOString().slice(0, 10);
+      a.download = `tab_blocks_config--${date}.json`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -1005,6 +1034,119 @@ document.addEventListener('DOMContentLoaded', () => {
       console.error('Export error:', error);
       alert('Failed to export.');
     }
+  }
+
+  // --- Mobile helpers ---
+  function addLongPressHandler(element, callback) {
+    let timer = null;
+    element.addEventListener('touchstart', (e) => {
+      timer = setTimeout(() => {
+        timer = null;
+        callback();
+      }, 500);
+    }, { passive: true });
+    element.addEventListener('touchend', () => { if (timer) { clearTimeout(timer); timer = null; } });
+    element.addEventListener('touchmove', () => { if (timer) { clearTimeout(timer); timer = null; } });
+  }
+
+  function createAddLinkBlock(collectionId) {
+    const block = document.createElement('div');
+    block.className = 'link-block link-block--add';
+    block.dataset.addLinkCollectionId = collectionId;
+    setElementContent(block, `<div class="f-icon">${plusIconSVG}</div>`, true);
+    block.addEventListener('click', () => openTabSheet(collectionId));
+    return block;
+  }
+
+  function openTabSheet(collectionId) {
+    mobileTargetCollectionId = collectionId;
+    renderSheetTabs();
+    mobileTabSheet.hidden = false;
+  }
+
+  function closeTabSheet() {
+    mobileTabSheet.hidden = true;
+    mobileTargetCollectionId = null;
+  }
+
+  async function renderSheetTabs() {
+    const sheetTabsList = document.getElementById('sheet-tabs-list');
+    sheetTabsList.innerHTML = '';
+    let tabs = [];
+    try {
+      tabs = await browser.tabs.query({ currentWindow: true });
+    } catch (e) { /* no tabs API */ }
+    if (!tabs.length) {
+      const msg = document.createElement('div');
+      msg.className = 'empty-collection-message';
+      setElementContent(msg, 'No open tabs found.');
+      sheetTabsList.appendChild(msg);
+      return;
+    }
+    tabs.forEach((tab) => {
+      const row = document.createElement('div');
+      row.className = 'tab-item';
+      const favicon = document.createElement('img');
+      favicon.className = 'tab-favicon';
+      favicon.src = tab.favIconUrl || '';
+      favicon.alt = '';
+      favicon.onerror = () => { favicon.style.display = 'none'; };
+      const titleSpan = document.createElement('span');
+      titleSpan.className = 'tab-title';
+      setElementContent(titleSpan, tab.title || tab.url);
+      row.appendChild(favicon);
+      row.appendChild(titleSpan);
+      row.addEventListener('click', () => addTabFromSheet(tab));
+      sheetTabsList.appendChild(row);
+    });
+  }
+
+  function addTabFromSheet(tab) {
+    if (!mobileTargetCollectionId) return;
+    const collection = collections.find(c => c.id === mobileTargetCollectionId);
+    if (!collection) return;
+    if (!isSafeUrl(tab.url)) return;
+    collection.links.push({
+      id: crypto.randomUUID(),
+      url: tab.url,
+      title: tab.title || tab.url,
+      favIconUrl: tab.favIconUrl || null,
+    });
+    closeTabSheet();
+    renderCollections();
+    saveData();
+  }
+
+  function openCollectionModal(collectionId) {
+    const collection = collections.find(c => c.id === collectionId);
+    if (!collection) return;
+    mobileEditingCollectionId = collectionId;
+    const modal = document.getElementById('mobile-collection-modal');
+    document.getElementById('modal-collection-title').value = collection.name;
+    modal.hidden = false;
+  }
+
+  function closeCollectionModal() {
+    document.getElementById('mobile-collection-modal').hidden = true;
+    mobileEditingCollectionId = null;
+  }
+
+  function openLinkModal(collectionId, linkId) {
+    const collection = collections.find(c => c.id === collectionId);
+    if (!collection) return;
+    const link = collection.links.find(l => l.id === linkId);
+    if (!link) return;
+    mobileEditingCollectionId = collectionId;
+    mobileEditingLinkId = linkId;
+    const modal = document.getElementById('mobile-link-modal');
+    document.getElementById('modal-link-title').value = link.title || '';
+    modal.hidden = false;
+  }
+
+  function closeLinkModal() {
+    document.getElementById('mobile-link-modal').hidden = true;
+    mobileEditingCollectionId = null;
+    mobileEditingLinkId = null;
   }
 
   // --- Initialization ---
@@ -1021,6 +1163,46 @@ document.addEventListener('DOMContentLoaded', () => {
   collapseAllBtn.addEventListener('click', toggleCollapseAll);
   searchInput.addEventListener('input', handleSearchInput);
   searchToggleContainer.addEventListener('change', handleSearchTargetChange);
+
+  if (isMobile) {
+    document.getElementById('sheet-close').addEventListener('click', closeTabSheet);
+    document.getElementById('sheet-backdrop').addEventListener('click', closeTabSheet);
+
+    document.getElementById('modal-collection-save').addEventListener('click', () => {
+      if (!mobileEditingCollectionId) return;
+      const newName = document.getElementById('modal-collection-title').value.trim();
+      if (newName) updateCollectionTitle(mobileEditingCollectionId, newName);
+      closeCollectionModal();
+      renderCollections();
+    });
+    document.getElementById('modal-collection-delete').addEventListener('click', () => {
+      const id = mobileEditingCollectionId;
+      closeCollectionModal();
+      deleteCollectionById(id);
+    });
+    document.getElementById('collection-modal-backdrop').addEventListener('click', closeCollectionModal);
+
+    document.getElementById('modal-link-save').addEventListener('click', () => {
+      if (!mobileEditingCollectionId || !mobileEditingLinkId) return;
+      const collection = collections.find(c => c.id === mobileEditingCollectionId);
+      if (!collection) return;
+      const link = collection.links.find(l => l.id === mobileEditingLinkId);
+      if (link) {
+        const newTitle = document.getElementById('modal-link-title').value.trim();
+        if (newTitle) link.title = newTitle;
+      }
+      closeLinkModal();
+      renderCollections();
+      saveData();
+    });
+    document.getElementById('modal-link-delete').addEventListener('click', () => {
+      const cId = mobileEditingCollectionId;
+      const lId = mobileEditingLinkId;
+      closeLinkModal();
+      deleteLink(cId, lId);
+    });
+    document.getElementById('link-modal-backdrop').addEventListener('click', closeLinkModal);
+  }
 
   loadData();
   fetchOpenTabs();
