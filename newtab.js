@@ -440,7 +440,7 @@ document.addEventListener('DOMContentLoaded', () => {
           added++;
         }
       }
-      if (added > 0) { renderCollections(); saveData(); }
+      if (added > 0) { resetSearch(); renderCollections(); renderTabsList(); saveData(); }
     } else if (linkBlockData && draggedLinkInfo) {
       // --- Dropped an existing Link Block ---
       const { linkId, sourceCollectionId, linkData } = draggedLinkInfo;
@@ -489,7 +489,9 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       const newLink = { id: crypto.randomUUID(), url: draggedTab.url, title: draggedTab.title || draggedTab.url, favIconUrl: draggedTab.favIconUrl };
       targetCollection.links.push(newLink);
+      resetSearch();
       renderCollections();
+      renderTabsList();
       saveData();
     } else {
       console.warn('Drop event occurred with unexpected data.');
@@ -659,6 +661,10 @@ document.addEventListener('DOMContentLoaded', () => {
       if (collectionId) updateCollectionTitle(collectionId, target.value);
     }
   }
+  function resetSearch() {
+    searchTerm = '';
+    searchInput.value = '';
+  }
   function handleSearchInput() {
     searchTerm = searchInput.value.trim();
     if (searchTarget === 'collections') renderCollections();
@@ -669,10 +675,9 @@ document.addEventListener('DOMContentLoaded', () => {
       searchTarget = event.target.value;
       searchInput.placeholder = searchTarget === 'collections' ? 'Search Collections...' : 'Search Open Tabs...';
       searchInput.ariaLabel = searchTarget === 'collections' ? 'Search Collections' : 'Search Open Tabs';
-      searchInput.value = '';
-      searchTerm = '';
-      if (searchTarget === 'collections') renderCollections();
-      else renderTabsList();
+      resetSearch();
+      renderCollections();
+      renderTabsList();
     }
   }
 

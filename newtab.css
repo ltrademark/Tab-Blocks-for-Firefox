@@ -81,6 +81,8 @@ a {
     padding: var(--padding);
     border-bottom: 1px solid var(--border);
     z-index: 2;
+    container-type: inline-size;
+    container-name: actions-bar;
   }
 
   & .main-content--footer {
@@ -754,6 +756,13 @@ a {
 .controls {
   display: flex;
   gap: var(--padding);
+  flex-shrink: 0;
+}
+
+@container actions-bar (max-width: 780px) {
+  .btn-label {
+    display: none;
+  }
 }
 
 #import-file {
