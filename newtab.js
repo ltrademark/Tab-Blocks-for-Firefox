@@ -18,6 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let pendingSaveCount = 0;
   let searchTerm = '';
   let searchTarget = 'collections';
+  const pendingEnterAnimations = new Map(); // id → delay ms
   let mobileTargetCollectionId = null;
   let mobileEditingCollectionId = null;
   let mobileEditingLinkId = null;
@@ -155,6 +156,13 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Assemble Block ---
     linkBlock.appendChild(topRow);
     linkBlock.appendChild(bottomRow);
+
+    if (pendingEnterAnimations.has(link.id)) {
+      const delay = pendingEnterAnimations.get(link.id);
+      if (delay) linkBlock.style.animationDelay = `${delay}ms, ${delay + 665}ms`;
+      linkBlock.classList.add('link-block--entering');
+      pendingEnterAnimations.delete(link.id);
+    }
 
     return linkBlock;
   }
@@ -334,6 +342,12 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     const seen = new Set();
+    let rowIndex = 0;
+    const staggerRow = (el) => {
+      el.classList.add('tabs-row--entering');
+      el.style.animationDelay = `${rowIndex++ * 45}ms`;
+    };
+
     filteredTabs.forEach((tab) => {
       if (seen.has(tab.id)) return;
       seen.add(tab.id);
@@ -367,11 +381,14 @@ document.addEventListener('DOMContentLoaded', () => {
           tabsCol.appendChild(createTabElement(partner));
           pairDiv.appendChild(wire);
           pairDiv.appendChild(tabsCol);
+          staggerRow(pairDiv);
           tabsListContainer.appendChild(pairDiv);
           return;
         }
       }
-      tabsListContainer.appendChild(createTabElement(tab));
+      const tabEl = createTabElement(tab);
+      staggerRow(tabEl);
+      tabsListContainer.appendChild(tabEl);
     });
   }
 
@@ -473,7 +490,9 @@ document.addEventListener('DOMContentLoaded', () => {
       let added = 0;
       for (const tabData of draggedSplitPair) {
         if (!targetCollection.links.some((l) => l.url === tabData.url)) {
-          targetCollection.links.push({ id: crypto.randomUUID(), url: tabData.url, title: tabData.title || tabData.url, favIconUrl: tabData.favIconUrl || null });
+          const newId = crypto.randomUUID();
+          pendingEnterAnimations.set(newId, added * 90);
+          targetCollection.links.push({ id: newId, url: tabData.url, title: tabData.title || tabData.url, favIconUrl: tabData.favIconUrl || null });
           added++;
         }
       }
@@ -513,6 +532,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
       const [movedLink] = sourceCollection.links.splice(linkIndexInSource, 1);
+      pendingEnterAnimations.set(movedLink.id, 0);
       targetCollection.links.push(movedLink);
       renderCollections();
       saveData();
@@ -525,6 +545,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
       const newLink = { id: crypto.randomUUID(), url: draggedTab.url, title: draggedTab.title || draggedTab.url, favIconUrl: draggedTab.favIconUrl };
+      pendingEnterAnimations.set(newLink.id, 0);
       targetCollection.links.push(newLink);
       resetSearch();
       renderCollections();
@@ -683,7 +704,13 @@ document.addEventListener('DOMContentLoaded', () => {
     if (action === 'delete-link' && collectionId) {
       const deleteBtn = target.closest('[data-action="delete-link"]');
       const linkId = deleteBtn?.dataset.linkId || linkBlock?.dataset.linkId;
-      if (linkId) deleteLink(collectionId, linkId);
+      if (!linkId) return;
+      if (linkBlock) {
+        linkBlock.classList.add('link-block--removing');
+        linkBlock.addEventListener('animationend', () => deleteLink(collectionId, linkId), { once: true });
+      } else {
+        deleteLink(collectionId, linkId);
+      }
     }
     else if (action === 'edit-link' && linkBlock && collectionId) startEditingLink(collectionId, linkBlock.dataset.linkId, linkBlock);
     else if (action === 'delete-collection' && collectionId) deleteCollectionById(collectionId);
@@ -1407,8 +1434,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const collection = collections.find(c => c.id === mobileTargetCollectionId);
     if (!collection) return;
     if (!isSafeUrl(tab.url)) return;
+    const newId = crypto.randomUUID();
+    pendingEnterAnimations.set(newId, 0);
     collection.links.push({
-      id: crypto.randomUUID(),
+      id: newId,
       url: tab.url,
       title: tab.title || tab.url,
       favIconUrl: tab.favIconUrl || null,

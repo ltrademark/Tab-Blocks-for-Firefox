@@ -10,6 +10,8 @@
 
   --danger: light-dark(#c91616, #620606);
 
+  --header-height: 70px;
+
   --radius: 1rem;
   --radius-large: calc(var(--radius) * 2);
   --radius-small: calc(var(--radius) / 2);
@@ -74,6 +76,7 @@ a {
     position: sticky;
     top: 0;
     display: flex;
+    height: var(--header-height);
     justify-content: space-between;
     align-items: center;
     background-color: var(--background);
@@ -149,7 +152,7 @@ a {
   background-color: var(--background);
   border-radius: var(--radius-small);
   padding: 3px;
-  margin-right: var(--padding-small);
+  /* margin-right: var(--padding-small); */
   border: 1px solid var(--border);
   flex-shrink: 0; 
 }
@@ -200,7 +203,7 @@ a {
   overflow-y: auto;
   border: 1px solid var(--border);
   border-radius: var(--radius-small);
-
+  
   & h2 {
     position: sticky;
     top: 0;
@@ -210,8 +213,8 @@ a {
     border-bottom: 1px solid var(--border);
     background-color: var(--background);
     padding: var(--padding);
-    min-height: 56px;
-    font-size: 0.9em;
+    min-height: var(--header-height);
+    font-size: 1.1em;
     font-weight: 700;
     z-index: 1;
   }
@@ -381,7 +384,7 @@ a {
 
   &.btn-sm {
     padding: var(--padding-small);
-    font-size: 0.85em;
+    font-size: 0.75em;
   }
 
   &.btn-sq {
@@ -431,6 +434,34 @@ a {
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: var(--padding);
   padding: 0 var(--padding) var(--padding);
+  overflow: clip;
+}
+
+@keyframes link-enter-slide {
+  from { opacity: 0; transform: translateY(-7px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes link-enter-glow {
+  0%   { box-shadow: none; }
+  38%  { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent); }
+  100% { box-shadow: none; }
+}
+
+@keyframes link-remove {
+  from { opacity: 1; transform: translateY(0)   rotate(0deg); }
+  to   { opacity: 0; transform: translateY(18px) rotate(5deg); }
+}
+
+.link-block--entering {
+  animation:
+    link-enter-slide 665ms var(--curve) both,
+    link-enter-glow 1060ms var(--curve) 665ms both;
+}
+
+.link-block--removing {
+  animation: link-remove 0.26s var(--curve) forwards;
+  pointer-events: none;
 }
 
 .link-block {
@@ -604,6 +635,15 @@ a {
   padding: var(--padding);
 }
 
+@keyframes tab-row-enter {
+  from { opacity: 0; transform: translateX(14px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+.tabs-row--entering {
+  animation: tab-row-enter 0.3s var(--curve) both;
+}
+
 .tab-item {
   display: flex;
   align-items: center;
@@ -631,7 +671,7 @@ a {
   }
 
   &.has-container {
-    --tab-bg: color-mix(in srgb, var(--container-color) 10%, var(--background-offset));
+    --tab-bg: color-mix(in srgb, var(--container-color) 50%, var(--background-offset));
     --tab-bg-highlight: color-mix(in srgb, var(--container-color) 20%, var(--background-offset));
 
     border-left-color: var(--container-color);
@@ -962,7 +1002,6 @@ a {
   background: var(--background);
   border: 1px solid var(--border);
   border-radius: var(--radius-small);
-  padding: var(--padding);
   width: 100%;
   max-width: 380px;
   display: flex;
@@ -1012,7 +1051,6 @@ a {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: var(--padding);
 
   &[hidden] {
     display: none;
@@ -1021,15 +1059,14 @@ a {
 
 .import-modal-panel {
   position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
   background: var(--background);
   border: 1px solid var(--border);
   border-radius: var(--radius-small);
-  padding: var(--padding);
   width: 100%;
   max-width: 480px;
-  display: flex;
-  flex-direction: column;
-  gap: var(--padding-small);
   max-height: 90vh;
   overflow-y: auto;
 }
@@ -1038,13 +1075,16 @@ a {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  padding: var(--padding);
+  border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
 
 .import-step {
   display: flex;
   flex-direction: column;
-  gap: var(--padding-small);
+  padding: var(--padding);
+  gap: var(--padding);
 
   &[hidden] {
     display: none;
@@ -1112,7 +1152,6 @@ a {
 
 .import-mode-options {
   display: flex;
-  flex-direction: column;
   gap: var(--padding-small);
 }
 
@@ -1120,6 +1159,7 @@ a {
   display: flex;
   align-items: flex-start;
   gap: var(--padding-small);
+  width: 100%;
   padding: var(--padding-small) var(--padding);
   border: 1px solid var(--border);
   border-radius: var(--radius-small);
@@ -1132,7 +1172,9 @@ a {
   }
 
   input[type="radio"] {
-    margin-top: 3px;
+    width: 14px;
+    aspect-ratio: 1;
+    margin: 7px 0;
     flex-shrink: 0;
   }
 }
@@ -1150,11 +1192,10 @@ a {
 
 .import-modal-footer {
   display: flex;
-  gap: var(--padding-small);
+  padding: var(--padding);
+  gap: var(--padding);
   justify-content: flex-end;
-  padding-top: var(--padding-small);
   border-top: 1px solid var(--border);
-  margin-top: var(--padding-small);
   flex-shrink: 0;
 }
 
